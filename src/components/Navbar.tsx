@@ -1,6 +1,6 @@
 import { Logo } from './Logo';
 import React, { useState, useEffect } from 'react';
-import { Search, History, Heart, Menu, X, ChevronDown } from 'lucide-react';
+import { Search, History, Heart, Menu, X, ChevronDown, User } from 'lucide-react';
 import { CATEGORIES, COUNTRIES } from '../services/api';
 
 interface NavbarProps {
@@ -125,15 +125,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
             </div>
           </nav>
 
-          <div className="flex items-center gap-2">
+          {/* Desktop Right Actions */}
+          <div className="hidden md:flex items-center gap-2">
             <button
               onClick={onOpenSearch}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all duration-200 group cursor-pointer"
               title="Tìm kiếm phim (Ctrl+K)"
             >
               <Search className="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" />
-              <span className="hidden lg:inline text-xs font-medium text-slate-400">Tìm kiếm...</span>
-              <kbd className="hidden lg:inline text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400 border border-white/10 font-mono">
+              <span className="text-xs font-medium text-slate-400">Tìm kiếm...</span>
+              <kbd className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400 border border-white/10 font-mono">
                 Ctrl+K
               </kbd>
             </button>
@@ -161,12 +162,32 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
             >
               <Heart className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Mobile Right Actions: Search, User, Menu matching screenshot */}
+          <div className="flex md:hidden items-center gap-1">
+            <button
+              onClick={onOpenSearch}
+              className="p-2 text-slate-200 hover:text-white active:scale-95 transition-all cursor-pointer"
+              title="Tìm kiếm"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => onNavigate('favorites')}
+              className="p-2 text-slate-200 hover:text-white active:scale-95 transition-all cursor-pointer"
+              title="Tài khoản / Yêu thích"
+            >
+              <User className="w-5 h-5" />
+            </button>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white cursor-pointer"
+              className="p-2 text-slate-200 hover:text-white active:scale-95 transition-all cursor-pointer"
+              title="Menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>

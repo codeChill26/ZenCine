@@ -79,15 +79,17 @@ export function App() {
     pageContent = <HomePage onSelectMovie={handleSelectMovie} onNavigate={navigateTo} />;
   }
 
+  const isWatchPage = route.startsWith('movie/');
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#0b0c10] text-slate-100 pb-16 sm:pb-0">
+    <div className={`min-h-screen flex flex-col bg-[#0b0c10] text-slate-100 ${isWatchPage ? 'pb-0' : 'pb-16 sm:pb-0'}`}>
       <Navbar
         currentRoute={route}
         onNavigate={navigateTo}
         onOpenSearch={() => setSearchOpen(true)}
       />
 
-      <PWAInstallBanner />
+      {!isWatchPage && <PWAInstallBanner />}
 
       <main className="flex-1">
         {pageContent}
@@ -95,12 +97,14 @@ export function App() {
 
       <Footer />
 
-      {/* Mobile Bottom Navigation Bar */}
-      <MobileBottomNav
-        currentRoute={route}
-        onNavigate={navigateTo}
-        onOpenSearch={() => setSearchOpen(true)}
-      />
+      {/* Mobile Bottom Navigation Bar (Hidden on watch page to match screenshot) */}
+      {!isWatchPage && (
+        <MobileBottomNav
+          currentRoute={route}
+          onNavigate={navigateTo}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
+      )}
 
       <SearchModal
         isOpen={searchOpen}

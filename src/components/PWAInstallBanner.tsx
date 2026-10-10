@@ -1,191 +1,165 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Zap, ShieldCheck, Maximize, Smartphone, Share2, PlusSquare } from 'lucide-react';
+import { Download, X, Smartphone, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { Logo } from './Logo';
 
 export const PWAInstallBanner: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [installed, setInstalled] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already running in standalone mode (already installed as app)
+    // Check if already in standalone PWA mode
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true;
-
     if (isStandalone) {
-      setInstalled(true);
+      setIsInstalled(true);
       return;
     }
 
-    // Detect iOS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isAppleDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isAppleDevice);
-
-    // Listen for Chrome / Android beforeinstallprompt
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-    // Check if user already dismissed the first-time modal in this session
-    const hasSeenPrompt = sessionStorage.getItem('zencine_pwa_dismissed');
-
-    if (!hasSeenPrompt) {
-      // Show popup after 1.5 seconds for first-time visitors
-      const timer = setTimeout(() => {
-        setIsOpen(true);
-      }, 1500);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-      };
+    // Check if window already has deferredPrompt captured from index.html
+    if ((window as any).deferredPrompt) {
+      setDeferredPrompt((window as any).deferredPrompt);
     }
 
+    const onBeforeInstall = (e: any) => {
+      e.preventDefault();
+      (window as any).deferredPrompt = e;
+      setDeferredPrompt(e);
+    };
+
+    const onPromptReady = () => {
+      if ((window as any).deferredPrompt) {
+        setDeferredPrompt((window as any).deferredPrompt);
+      }
+    };
+
+    const onAppInstalled = () => {
+      setIsInstalled(true);
+      setDismissed(true);
+      (window as any).deferredPrompt = null;
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('pwa-prompt-ready', onPromptReady);
+    window.addEventListener('appinstalled', onAppInstalled);
+
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('pwa-prompt-ready', onPromptReady);
+      window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-        setIsOpen(false);
+    const promptEvent = deferredPrompt || (window as any).deferredPrompt;
+
+    if (promptEvent) {
+      try {
+        // Trigger browser native install prompt directly
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === 'accepted') {
+          setDeferredPrompt(null);
+          (window as any).deferredPrompt = null;
+          setDismissed(true);
+        }
+      } catch (err) {
+        console.warn('Install error, showing guide:', err);
+        setShowGuideModal(true);
       }
-    } else if (!isIOS) {
-      // Fallback instruction for Android/Desktop if beforeinstallprompt already fired
-      alert('Để cài đặt ZenCine, bạn hãy bấm vào biểu tượng 3 dấu chấm (⋮) ở góc trên trình duyệt và chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính".');
-      setIsOpen(false);
+    } else {
+      // If native prompt is not directly available (e.g. iOS Safari or Chrome restrictions), show quick guide
+      setShowGuideModal(true);
     }
   };
 
-  const handleDismiss = () => {
-    setIsOpen(false);
-    sessionStorage.setItem('zencine_pwa_dismissed', 'true');
-  };
-
-  if (!isOpen || installed) return null;
+  if (isInstalled || dismissed) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
-      <div
-        className="relative w-full max-w-md glass-panel rounded-3xl overflow-hidden p-6 sm:p-7 border border-red-500/30 shadow-2xl bg-[#0e111a]/95 text-center space-y-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        <button
-          onClick={handleDismiss}
-          className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-          title="Đóng"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Ambient Top Glow */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-20 bg-red-600/30 rounded-full blur-2xl pointer-events-none" />
-
-        {/* Logo Emblem Header */}
-        <div className="flex flex-col items-center justify-center pt-2">
-          <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/10 to-white/5 border border-white/10 shadow-xl mb-3">
-            <Logo size="lg" showText={false} />
-          </div>
-          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Cài Đặt Ứng Dụng ZenCine
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-300 font-medium mt-1">
-            Trải nghiệm rạp phim mượt mà ngay trên màn hình chính
-          </p>
-        </div>
-
-        {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-1 gap-2.5 text-left text-xs bg-black/40 p-3.5 rounded-2xl border border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center flex-shrink-0">
-              <Zap className="w-4 h-4" />
+    <>
+      {/* Floating PWA Install Banner */}
+      <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:w-[380px] z-50 glass-panel rounded-2xl p-3.5 shadow-2xl border border-red-500/30 bg-[#0e1017]/95 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center shadow-md">
+              <Logo size="sm" showText={false} />
             </div>
-            <div>
-              <span className="font-bold text-white">Tốc độ mở siêu nhanh:</span>
-              <p className="text-slate-400 text-[11px]">Không giật lag, tải luồng phát Full HD tức thì.</p>
+            <div className="min-w-0">
+              <h4 className="text-sm font-bold text-white truncate">ZenCine</h4>
+              <p className="text-[11px] text-slate-400 truncate">Xem phim Full HD mượt mà, không quảng cáo</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-bold text-white">100% Không quảng cáo rác:</span>
-              <p className="text-slate-400 text-[11px]">Không chứa pop-up chuyển hướng gây khó chịu.</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center flex-shrink-0">
-              <Maximize className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-bold text-white">Toàn màn hình không viền:</span>
-              <p className="text-slate-400 text-[11px]">Trải nghiệm như ứng dụng gốc, ẩn thanh URL.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Instructions / Action Area */}
-        {isIOS ? (
-          // iOS Safari Step-by-Step Guide
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-left text-xs space-y-2 text-slate-200">
-            <p className="font-bold text-amber-400 flex items-center gap-1.5">
-              <Smartphone className="w-4 h-4" />
-              Cách cài trên iPhone / iPad (Safari):
-            </p>
-            <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
-              <li className="flex items-center gap-1.5">
-                <span>1. Bấm nút</span>
-                <span className="font-bold text-white bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  <Share2 className="w-3 h-3 text-cyan-400 inline" /> Chia sẻ
-                </span>
-                <span>ở đáy Safari.</span>
-              </li>
-              <li className="flex items-center gap-1.5">
-                <span>2. Chọn</span>
-                <span className="font-bold text-white bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-1">
-                  <PlusSquare className="w-3 h-3 text-emerald-400 inline" /> Thêm vào MH chính
-                </span>
-              </li>
-              <li>3. Bấm <b>Thêm (Add)</b> để hoàn tất.</li>
-            </ol>
-            <button
-              onClick={handleDismiss}
-              className="w-full mt-2 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all cursor-pointer"
-            >
-              Tôi Đã Hiểu
-            </button>
-          </div>
-        ) : (
-          // Android / Chrome / Desktop One-Click Install Button
-          <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               onClick={handleInstallClick}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm tracking-wide shadow-xl shadow-red-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+              className="flex items-center gap-1 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 active:scale-95 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all cursor-pointer"
             >
-              <Download className="w-4 h-4" />
-              <span>Cài Đặt Ngay (Miễn Phí)</span>
+              <Download className="w-3.5 h-3.5" />
+              <span>Cài Đặt</span>
             </button>
             <button
-              onClick={handleDismiss}
-              className="text-xs text-slate-400 hover:text-slate-200 font-medium py-1 transition-colors cursor-pointer"
+              onClick={() => setDismissed(true)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer transition-colors"
+              title="Đóng"
             >
-              Để sau, tiếp tục xem trên web
+              <X className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      {/* Fallback Install Instructions Modal (For iOS Safari or Browsers without direct prompt) */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm glass-panel rounded-2xl p-5 border border-white/10 bg-[#121520] shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-5 h-5 text-red-500" />
+                <h3 className="font-bold text-white text-base">Cài đặt ứng dụng ZenCine</h3>
+              </div>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs sm:text-sm text-slate-300">
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                <p className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-red-500" />
+                  Trên điện thoại Android (Chrome / Cốc Cốc):
+                </p>
+                <p className="text-xs text-slate-300 pl-5 leading-relaxed">
+                  Bấm vào menu <strong>3 chấm (⋮)</strong> góc trên cùng bên phải trình duyệt ➔ Chọn <strong>"Cài đặt ứng dụng"</strong> hoặc <strong>"Thêm vào Màn hình chính"</strong>.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                <p className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                  Trên iPhone / iPad (Safari):
+                </p>
+                <p className="text-xs text-slate-300 pl-5 leading-relaxed">
+                  Bấm biểu tượng <strong>Chia sẻ (Share <ArrowUpRight className="inline w-3.5 h-3.5" />)</strong> ở thanh dưới cùng ➔ Cuộn xuống chọn <strong>"Thêm vào MH chính"</strong> (Add to Home Screen).
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowGuideModal(false)}
+              className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wide cursor-pointer transition-all shadow-lg shadow-red-600/30"
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

@@ -1,10 +1,16 @@
-const CACHE_NAME = 'zencine-cache-v1';
+const CACHE_NAME = 'qtcinema-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png',
+  '/favicon.svg',
+  '/favicon.png',
+  '/favicon.ico'
 ];
 
 self.addEventListener('install', (event) => {

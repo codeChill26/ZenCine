@@ -82,11 +82,41 @@ button, a {
    ARTPLAYER CUSTOM STYLING (Matching Reference Image Exact)
    ========================================================== */
 
-/* Dark Gradient on Player Controls */
-.art-bottom {
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 60%, transparent 100%) !important;
-  padding-bottom: 8px !important;
-  padding-top: 24px !important;
+/* Keep toolbar permanently visible ("thanh công cụ không được bị mất") */
+.art-video-player .art-bottom,
+.art-video-player.art-hide .art-bottom {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  transition: opacity 0.2s ease !important;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 65%, transparent 100%) !important;
+  padding-bottom: 10px !important;
+  padding-top: 28px !important;
+}
+
+.art-video-player .art-controls,
+.art-video-player.art-hide .art-controls {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+.art-controls-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.art-controls-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
 }
 
 /* Play/Pause Button - White Circular Button with Black Play Icon */
@@ -99,8 +129,8 @@ button, a {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin-left: 12px !important;
-  margin-right: 10px !important;
+  margin-left: 6px !important;
+  margin-right: 6px !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
   transition: transform 0.2s, background-color 0.2s !important;
 }
@@ -121,11 +151,11 @@ button, a {
 .art-capsule-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  padding: 4px 10px;
+  padding: 4px 9px;
   border-radius: 9999px;
   font-size: 11px;
   font-weight: 700;
@@ -138,6 +168,75 @@ button, a {
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.35);
   transform: translateY(-1px);
+}
+
+/* 1x Speed Pill Button */
+.art-speed-pill-btn {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.art-speed-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Watermark Badge */
+.art-watermark-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e50914;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  opacity: 0.9;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+/* Custom Progress Row: [00:02] [--- Progress Slider ---] [62:26] */
+.art-custom-progress-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 0 14px !important;
+  margin-bottom: 4px !important;
+}
+
+.art-custom-progress-row .art-progress {
+  flex: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.art-time-cur,
+.art-time-dur {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+  font-variant-numeric: tabular-nums !important;
+  letter-spacing: 0.02em !important;
+  min-width: 36px !important;
+}
+
+.art-time-dur {
+  text-align: right !important;
+  color: #94a3b8 !important;
+}
+
+/* Hide Artplayer default time control inside buttons row */
+.art-controls-left .art-control-time,
+.art-control-time {
+  display: none !important;
 }
 
 /* Progress Bar Red Color Scheme */
@@ -161,17 +260,9 @@ button, a {
   background: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Time display styling */
-.art-control-time {
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  color: #cbd5e1 !important;
-  letter-spacing: 0.02em !important;
-}
-
-/* Setting and Picture-in-Picture Icons */
-.art-control-setting:hover svg,
-.art-control-pip:hover svg,
+/* Fullscreen and Volume Icons Hover */
+.art-control-volume:hover svg,
 .art-control-fullscreen:hover svg {
   color: #e50914 !important;
 }
+

@@ -1,25 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <!-- Crown perched on top slanted shoulder (Color: bg-red-600 #e50914) -->
-  <path
-    d="M48 34L56 12L66 26L80 18L84 36L98 33L88 54C88 54 68 44 48 34Z"
-    fill="#e50914"
-  />
-
-  <!-- Outer Play Button Outline -->
-  <path
-    d="M34 36L34 86L82 61Z"
-    stroke="#ffffff"
-    stroke-width="8.5"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-
-  <!-- Inner Play Button Outline -->
-  <path
-    d="M47 48L47 74L70 61Z"
-    stroke="#ffffff"
-    stroke-width="6.5"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Solid Pure Black Background -->
+  <rect width="512" height="512" fill="#000000" rx="96"/>
+  
+  <!-- Subtle Ambient Glow -->
+  <circle cx="256" cy="256" r="180" fill="#e50914" opacity="0.18"/>
+  
+  <!-- Outer Film Reel Rounded Rectangle -->
+  <rect x="118" y="118" width="276" height="276" rx="36" stroke="#e50914" stroke-width="26"/>
+  
+  <!-- Left and Right Vertical Track Dividers -->
+  <line x1="178" y1="118" x2="178" y2="394" stroke="#e50914" stroke-width="24"/>
+  <line x1="334" y1="118" x2="334" y2="394" stroke="#e50914" stroke-width="24"/>
+  
+  <!-- Horizontal Center Line -->
+  <line x1="118" y1="256" x2="394" y2="256" stroke="#e50914" stroke-width="24"/>
+  
+  <!-- Horizontal Track Notches -->
+  <line x1="118" y1="187" x2="178" y2="187" stroke="#e50914" stroke-width="20"/>
+  <line x1="118" y1="325" x2="178" y2="325" stroke="#e50914" stroke-width="20"/>
+  <line x1="334" y1="187" x2="394" y2="187" stroke="#e50914" stroke-width="20"/>
+  <line x1="334" y1="325" x2="394" y2="325" stroke="#e50914" stroke-width="20"/>
+  
+  <!-- Center Play Triangle -->
+  <polygon points="236,206 236,306 302,256" fill="#ffffff"/>
 </svg>
