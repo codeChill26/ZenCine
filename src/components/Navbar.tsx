@@ -1,0 +1,217 @@
+import { Logo } from './Logo';
+import React, { useState, useEffect } from 'react';
+import { Search, History, Heart, Menu, X, ChevronDown } from 'lucide-react';
+import { CATEGORIES, COUNTRIES } from '../services/api';
+
+interface NavbarProps {
+  currentRoute: string;
+  onNavigate: (route: string) => void;
+  onOpenSearch: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpenSearch }) => {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [genreDropdown, setGenreDropdown] = useState(false);
+  const [countryDropdown, setCountryDropdown] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const navLinks = [
+    { label: 'Trang Chủ', route: 'home' },
+    { label: 'Phim Lẻ', route: 'type:phim-le' },
+    { label: 'Phim Bộ', route: 'type:phim-bo' },
+    { label: 'Hoạt Hình', route: 'type:hoat-hinh' },
+  ];
+
+  return (
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'glass-nav py-3' : 'bg-gradient-to-b from-[#0b0c10]/95 via-[#0b0c10]/70 to-transparent py-5'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          
+          <div onClick={() => onNavigate('home')}>
+            <Logo size="md" />
+          </div>
+
+          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+            {navLinks.map((item) => (
+              <button
+                key={item.route}
+                onClick={() => onNavigate(item.route)}
+                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                  currentRoute === item.route
+                    ? 'text-white bg-white/10 shadow-inner'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setGenreDropdown(!genreDropdown);
+                  setCountryDropdown(false);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+              >
+                <span>Thể Loại</span>
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${genreDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {genreDropdown && (
+                <div
+                  className="absolute top-full left-0 mt-2 w-72 glass-panel rounded-2xl p-3 shadow-2xl grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50"
+                  onMouseLeave={() => setGenreDropdown(false)}
+                >
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.slug}
+                      onClick={() => {
+                        onNavigate(`category:${cat.slug}`);
+                        setGenreDropdown(false);
+                      }}
+                      className="text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-red-600/20 hover:text-red-400 transition-colors cursor-pointer"
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setCountryDropdown(!countryDropdown);
+                  setGenreDropdown(false);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+              >
+                <span>Quốc Gia</span>
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${countryDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {countryDropdown && (
+                <div
+                  className="absolute top-full left-0 mt-2 w-56 glass-panel rounded-2xl p-3 shadow-2xl grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50"
+                  onMouseLeave={() => setCountryDropdown(false)}
+                >
+                  {COUNTRIES.map((c) => (
+                    <button
+                      key={c.slug}
+                      onClick={() => {
+                        onNavigate(`country:${c.slug}`);
+                        setCountryDropdown(false);
+                      }}
+                      className="text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-red-600/20 hover:text-red-400 transition-colors cursor-pointer"
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenSearch}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all duration-200 group cursor-pointer"
+              title="Tìm kiếm phim (Ctrl+K)"
+            >
+              <Search className="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" />
+              <span className="hidden lg:inline text-xs font-medium text-slate-400">Tìm kiếm...</span>
+              <kbd className="hidden lg:inline text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400 border border-white/10 font-mono">
+                Ctrl+K
+              </kbd>
+            </button>
+
+            <button
+              onClick={() => onNavigate('history')}
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+                currentRoute === 'history'
+                  ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+              }`}
+              title="Lịch sử xem phim"
+            >
+              <History className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => onNavigate('favorites')}
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+                currentRoute === 'favorites'
+                  ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+              }`}
+              title="Phim đã lưu"
+            >
+              <Heart className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white cursor-pointer"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {mobileMenuOpen && (
+          <div className="md:hidden mt-4 pb-4 border-t border-white/10 pt-4 space-y-2 animate-in fade-in duration-200">
+            {navLinks.map((item) => (
+              <button
+                key={item.route}
+                onClick={() => {
+                  onNavigate(item.route);
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer ${
+                  currentRoute === item.route
+                    ? 'bg-red-600 text-white'
+                    : 'text-slate-300 hover:bg-white/5'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+
+            <div className="pt-2 border-t border-white/5">
+              <div className="text-xs font-semibold text-slate-400 px-4 py-1 uppercase tracking-wider">
+                Thể Loại Nổi Bật
+              </div>
+              <div className="grid grid-cols-2 gap-1 p-2">
+                {CATEGORIES.slice(0, 8).map((cat) => (
+                  <button
+                    key={cat.slug}
+                    onClick={() => {
+                      onNavigate(`category:${cat.slug}`);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 cursor-pointer"
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};

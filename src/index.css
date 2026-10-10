@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #0b0c10;
+    color: #f1f5f9;
+  }
+}
+
+/* Custom Cinema Glow & Glass */
+.glass-panel {
+  background: rgba(18, 22, 34, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-nav {
+  background: rgba(11, 12, 16, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glow-red {
+  box-shadow: 0 0 25px rgba(229, 9, 20, 0.4);
+}
+
+.text-gradient-red {
+  background: linear-gradient(135deg, #ff4b4b 0%, #e50914 50%, #990000 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0c10;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f293d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e50914;
+}
+
+/* Hide scrollbar for clean sliders */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile Touch & Safe Area Optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a {
+  touch-action: manipulation;
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@supports (-webkit-touch-callout: none) {
+  /* iOS smooth scrolling */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* ==========================================================
+   ARTPLAYER CUSTOM STYLING (Matching Reference Image Exact)
+   ========================================================== */
+
+/* Dark Gradient on Player Controls */
+.art-bottom {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 60%, transparent 100%) !important;
+  padding-bottom: 8px !important;
+  padding-top: 24px !important;
+}
+
+/* Play/Pause Button - White Circular Button with Black Play Icon */
+.art-control-playAndPause {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-radius: 9999px !important;
+  width: 38px !important;
+  height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: 12px !important;
+  margin-right: 10px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  transition: transform 0.2s, background-color 0.2s !important;
+}
+
+.art-control-playAndPause:hover {
+  transform: scale(1.08) !important;
+  background-color: #f3f4f6 !important;
+}
+
+.art-control-playAndPause svg {
+  fill: #000000 !important;
+  stroke: #000000 !important;
+  width: 18px !important;
+  height: 18px !important;
+}
+
+/* -10s and +10s Capsule Buttons */
+.art-capsule-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.art-capsule-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Progress Bar Red Color Scheme */
+.art-progress-played {
+  background: #e50914 !important;
+}
+
+.art-progress-indicator {
+  background: #e50914 !important;
+  width: 14px !important;
+  height: 14px !important;
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.8) !important;
+  border: 2px solid #ffffff !important;
+}
+
+.art-progress-loaded {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.art-progress-highlight {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Time display styling */
+.art-control-time {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #cbd5e1 !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* Setting and Picture-in-Picture Icons */
+.art-control-setting:hover svg,
+.art-control-pip:hover svg,
+.art-control-fullscreen:hover svg {
+  color: #e50914 !important;
+}
