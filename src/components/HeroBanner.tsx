@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MovieItem } from '../types/movie';
 import { getImageUrl, getEpisodeBadge } from '../services/api';
@@ -16,13 +16,78 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
+  const touchEndYRef = useRef<number | null>(null);
+
+  const maxSlides = Math.min(movies.length, 6);
+
+  const handleNext = () => {
+    if (maxSlides <= 1) return;
+    setCurrentIndex((prev) => (prev + 1) % maxSlides);
+  };
+
+  const handlePrev = () => {
+    if (maxSlides <= 1) return;
+    setCurrentIndex((prev) => (prev - 1 + maxSlides) % maxSlides);
+  };
+
   useEffect(() => {
-    if (movies.length <= 1) return;
+    if (maxSlides <= 1) return;
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % Math.min(movies.length, 6));
+      setCurrentIndex((prev) => (prev + 1) % maxSlides);
     }, 7000);
     return () => clearInterval(interval);
-  }, [movies.length]);
+  }, [currentIndex, maxSlides]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches && e.touches.length > 0) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      touchEndXRef.current = e.touches[0].clientX;
+      touchEndYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches && e.touches.length > 0) {
+      touchEndXRef.current = e.touches[0].clientX;
+      touchEndYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+
+    const finalEndX = (e.changedTouches && e.changedTouches[0])
+      ? e.changedTouches[0].clientX
+      : (touchEndXRef.current ?? touchStartXRef.current ?? 0);
+
+    const finalEndY = (e.changedTouches && e.changedTouches[0])
+      ? e.changedTouches[0].clientY
+      : (touchEndYRef.current ?? touchStartYRef.current ?? 0);
+
+    const diffX = touchStartXRef.current - finalEndX;
+    const diffY = (touchStartYRef.current || 0) - finalEndY;
+
+    // Ignore horizontal gesture if vertical scroll was dominant
+    if (Math.abs(diffY) > Math.abs(diffX)) return;
+
+    const minSwipeDistance = 35;
+    if (diffX > minSwipeDistance) {
+      // Swiped left -> Next slide
+      handleNext();
+    } else if (diffX < -minSwipeDistance) {
+      // Swiped right -> Previous slide
+      handlePrev();
+    }
+
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    touchEndXRef.current = null;
+    touchEndYRef.current = null;
+  };
 
   if (!movies || movies.length === 0) return null;
 
@@ -31,7 +96,12 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const episode = getEpisodeBadge(currentMovie);
 
   return (
-    <div className="relative w-full h-[65vh] sm:h-[75vh] min-h-[480px] max-h-[750px] overflow-hidden bg-black select-none">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="relative w-full h-[65vh] sm:h-[75vh] min-h-[480px] max-h-[750px] overflow-hidden bg-black select-none touch-pan-y"
+    >
       {/* Background Backdrop Image */}
       <div className="absolute inset-0">
         <img
@@ -119,18 +189,18 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         </div>
       </div>
 
-      {/* Side Slider Navigation Arrows (Offset neatly to prevent text overlap) */}
+      {/* Side Slider Navigation Arrows (Hidden on mobile, visible from sm up) */}
       <button
-        onClick={() => setCurrentIndex((prev) => (prev - 1 + Math.min(movies.length, 6)) % Math.min(movies.length, 6))}
-        className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-md border border-white/10 text-white hover:scale-110 transition-all cursor-pointer z-20"
+        onClick={handlePrev}
+        className="hidden sm:flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-md border border-white/10 text-white hover:scale-110 transition-all cursor-pointer z-20"
         aria-label="Previous slide"
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
 
       <button
-        onClick={() => setCurrentIndex((prev) => (prev + 1) % Math.min(movies.length, 6))}
-        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-md border border-white/10 text-white hover:scale-110 transition-all cursor-pointer z-20"
+        onClick={handleNext}
+        className="hidden sm:flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-md border border-white/10 text-white hover:scale-110 transition-all cursor-pointer z-20"
         aria-label="Next slide"
       >
         <ChevronRight className="w-5 h-5" />

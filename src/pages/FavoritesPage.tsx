@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Heart, Film } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites';
 import { MovieCard } from '../components/MovieCard';
@@ -9,6 +9,17 @@ interface FavoritesPageProps {
 
 export const FavoritesPage: React.FC<FavoritesPageProps> = ({ onSelectMovie }) => {
   const { favorites } = useFavorites();
+
+  useEffect(() => {
+    const currentHash = window.location.hash || '#/favorites';
+    const savedScroll = sessionStorage.getItem(`scroll_pos_${currentHash}`);
+    if (savedScroll !== null) {
+      sessionStorage.removeItem(`scroll_pos_${currentHash}`);
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: Number(savedScroll), behavior: 'auto' });
+      });
+    }
+  }, []);
 
   return (
     <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">

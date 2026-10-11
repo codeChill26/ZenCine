@@ -33,7 +33,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'glass-nav py-3' : 'bg-gradient-to-b from-[#0b0c10]/95 via-[#0b0c10]/70 to-transparent py-5'
+        mobileMenuOpen
+          ? 'bg-[#0b0c10] border-b border-white/10 shadow-2xl py-3.5'
+          : scrolled
+            ? 'glass-nav py-3'
+            : 'bg-gradient-to-b from-[#0b0c10]/95 via-[#0b0c10]/70 to-transparent py-5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -193,44 +197,72 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden mt-4 pb-4 border-t border-white/10 pt-4 space-y-2 animate-in fade-in duration-200">
-            {navLinks.map((item) => (
-              <button
-                key={item.route}
-                onClick={() => {
-                  onNavigate(item.route);
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer ${
-                  currentRoute === item.route
-                    ? 'bg-red-600 text-white'
-                    : 'text-slate-300 hover:bg-white/5'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+          <>
+            {/* Click-outside backdrop overlay */}
+            <div
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[-1]"
+              onClick={() => setMobileMenuOpen(false)}
+            />
 
-            <div className="pt-2 border-t border-white/5">
-              <div className="text-xs font-semibold text-slate-400 px-4 py-1 uppercase tracking-wider">
-                Thể Loại Nổi Bật
+            <div className="md:hidden mt-3 pb-4 border-t border-white/10 pt-3 space-y-2 max-h-[calc(100vh-5.5rem)] overflow-y-auto no-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+              {navLinks.map((item) => (
+                <button
+                  key={item.route}
+                  onClick={() => {
+                    onNavigate(item.route);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                    currentRoute === item.route
+                      ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+
+              <div className="pt-2 border-t border-white/10">
+                <div className="text-xs font-semibold text-slate-400 px-4 py-1.5 uppercase tracking-wider">
+                  Thể Loại Nổi Bật
+                </div>
+                <div className="grid grid-cols-2 gap-1 p-2">
+                  {CATEGORIES.slice(0, 8).map((cat) => (
+                    <button
+                      key={cat.slug}
+                      onClick={() => {
+                        onNavigate(`category:${cat.slug}`);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/5 active:bg-red-600/20 transition-colors cursor-pointer"
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-1 p-2">
-                {CATEGORIES.slice(0, 8).map((cat) => (
-                  <button
-                    key={cat.slug}
-                    onClick={() => {
-                      onNavigate(`category:${cat.slug}`);
-                      setMobileMenuOpen(false);
-                    }}
-                    className="text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/5 cursor-pointer"
-                  >
-                    {cat.name}
-                  </button>
-                ))}
+
+              <div className="pt-2 border-t border-white/10">
+                <div className="text-xs font-semibold text-slate-400 px-4 py-1.5 uppercase tracking-wider">
+                  Quốc Gia
+                </div>
+                <div className="grid grid-cols-2 gap-1 p-2">
+                  {COUNTRIES.map((c) => (
+                    <button
+                      key={c.slug}
+                      onClick={() => {
+                        onNavigate(`country:${c.slug}`);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/5 active:bg-red-600/20 transition-colors cursor-pointer"
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </header>

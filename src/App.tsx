@@ -10,18 +10,40 @@ import { CatalogPage } from './pages/CatalogPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { FavoritesPage } from './pages/FavoritesPage';
 
+export interface ParsedRoute {
+  raw: string;
+  path: string;
+  page: number;
+}
+
+export function parseRoute(hashString: string): ParsedRoute {
+  const raw = hashString.replace(/^#\/?/, '').trim() || 'home';
+  const [path, queryString] = raw.split('?');
+  const params = new URLSearchParams(queryString || '');
+  const parsedPage = parseInt(params.get('page') || '1', 10);
+  const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+
+  return {
+    raw,
+    path: path || 'home',
+    page,
+  };
+}
+
 export function App() {
-  const [route, setRoute] = useState<string>(() => {
-    const hash = window.location.hash.replace(/^#\/?/, '');
-    return hash || 'home';
+  const [currentRoute, setCurrentRoute] = useState<ParsedRoute>(() => {
+    return parseRoute(window.location.hash);
   });
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '');
-      setRoute(hash || 'home');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const parsed = parseRoute(window.location.hash);
+      setCurrentRoute(parsed);
+      const hasSavedScroll = sessionStorage.getItem(`scroll_pos_${window.location.hash}`) !== null;
+      if (!hasSavedScroll) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     };
 
     window.addEventListener('hashchange', handleHashChange);
@@ -33,58 +55,73 @@ export function App() {
   };
 
   const handleSelectMovie = (slug: string) => {
+    const currentHash = window.location.hash || '#/home';
+    try {
+      sessionStorage.setItem(`scroll_pos_${currentHash}`, String(window.scrollY));
+      sessionStorage.setItem('zen_prev_route', currentHash);
+    } catch (_) {}
     navigateTo(`movie/${slug}`);
   };
 
+  const { path, page } = currentRoute;
   let pageContent: React.ReactNode = null;
 
-  if (route.startsWith('movie/')) {
-    const movieSlug = route.replace(/^movie\//, '');
-    pageContent = <WatchPage movieSlug={movieSlug} onSelectMovie={handleSelectMovie} />;
-  } else if (route.startsWith('type:')) {
-    const typeSlug = route.replace(/^type:/, '');
+  if (path.startsWith('movie/')) {
+    const movieSlug = path.replace(/^movie\//, '');
+    pageContent = (
+      <WatchPage
+        movieSlug={movieSlug}
+        onSelectMovie={handleSelectMovie}
+        onNavigate={navigateTo}
+      />
+    );
+  } else if (path.startsWith('type:')) {
+    const typeSlug = path.replace(/^type:/, '');
     pageContent = (
       <CatalogPage
         filterType="type"
         slug={typeSlug}
+        initialPage={page}
         onSelectMovie={handleSelectMovie}
         onNavigate={navigateTo}
       />
     );
-  } else if (route.startsWith('category:')) {
-    const catSlug = route.replace(/^category:/, '');
+  } else if (path.startsWith('category:')) {
+    const catSlug = path.replace(/^category:/, '');
     pageContent = (
       <CatalogPage
         filterType="category"
         slug={catSlug}
+        initialPage={page}
         onSelectMovie={handleSelectMovie}
         onNavigate={navigateTo}
       />
     );
-  } else if (route.startsWith('country:')) {
-    const countrySlug = route.replace(/^country:/, '');
+  } else if (path.startsWith('country:')) {
+    const countrySlug = path.replace(/^country:/, '');
     pageContent = (
       <CatalogPage
         filterType="country"
         slug={countrySlug}
+        initialPage={page}
         onSelectMovie={handleSelectMovie}
         onNavigate={navigateTo}
       />
     );
-  } else if (route === 'history') {
+  } else if (path === 'history') {
     pageContent = <HistoryPage onSelectMovie={handleSelectMovie} />;
-  } else if (route === 'favorites') {
+  } else if (path === 'favorites') {
     pageContent = <FavoritesPage onSelectMovie={handleSelectMovie} />;
   } else {
     pageContent = <HomePage onSelectMovie={handleSelectMovie} onNavigate={navigateTo} />;
   }
 
-  const isWatchPage = route.startsWith('movie/');
+  const isWatchPage = path.startsWith('movie/');
 
   return (
     <div className={`min-h-screen flex flex-col bg-[#0b0c10] text-slate-100 ${isWatchPage ? 'pb-0' : 'pb-16 sm:pb-0'}`}>
       <Navbar
-        currentRoute={route}
+        currentRoute={path}
         onNavigate={navigateTo}
         onOpenSearch={() => setSearchOpen(true)}
       />
@@ -100,7 +137,7 @@ export function App() {
       {/* Mobile Bottom Navigation Bar (Hidden on watch page to match screenshot) */}
       {!isWatchPage && (
         <MobileBottomNav
-          currentRoute={route}
+          currentRoute={path}
           onNavigate={navigateTo}
           onOpenSearch={() => setSearchOpen(true)}
         />

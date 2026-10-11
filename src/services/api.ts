@@ -148,6 +148,7 @@ export const CATEGORIES = [
 ];
 
 export const COUNTRIES = [
+  { name: 'Việt Nam', slug: 'viet-nam' },
   { name: 'Trung Quốc', slug: 'trung-quoc' },
   { name: 'Hàn Quốc', slug: 'han-quoc' },
   { name: 'Âu Mỹ', slug: 'au-my' },
@@ -155,5 +156,4 @@ export const COUNTRIES = [
   { name: 'Thái Lan', slug: 'thai-lan' },
   { name: 'Hồng Kông', slug: 'hong-kong' },
   { name: 'Đài Loan', slug: 'dai-loan' },
-  { name: 'Việt Nam', slug: 'viet-nam' },
 ];

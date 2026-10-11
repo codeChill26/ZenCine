@@ -42,6 +42,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectMovie, onNavigate })
     loadHomeData();
   }, []);
 
+  // Restore scroll position when returning from movie watch page
+  useEffect(() => {
+    if (latestMovies.length > 0) {
+      const currentHash = window.location.hash || '#/home';
+      const savedScroll = sessionStorage.getItem(`scroll_pos_${currentHash}`);
+      if (savedScroll !== null) {
+        sessionStorage.removeItem(`scroll_pos_${currentHash}`);
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: Number(savedScroll), behavior: 'auto' });
+        });
+      }
+    }
+  }, [latestMovies]);
+
   return (
     <div className="pb-16">
       {/* Hero Banner with Image 1 UI & Quick Info support */}

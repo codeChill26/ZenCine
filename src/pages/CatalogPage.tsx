@@ -13,6 +13,7 @@ import { MovieCard } from '../components/MovieCard';
 interface CatalogPageProps {
   filterType: 'type' | 'category' | 'country';
   slug: string;
+  initialPage?: number;
   onSelectMovie: (slug: string) => void;
   onNavigate: (route: string) => void;
 }
@@ -20,13 +21,21 @@ interface CatalogPageProps {
 export const CatalogPage: React.FC<CatalogPageProps> = ({
   filterType,
   slug,
+  initialPage = 1,
   onSelectMovie,
   onNavigate,
 }) => {
   const [movies, setMovies] = useState<MovieItem[]>([]);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+
+  // Sync internal page state if initialPage changes (from browser back/forward)
+  useEffect(() => {
+    if (initialPage && initialPage !== page) {
+      setPage(initialPage);
+    }
+  }, [initialPage]);
 
   let title = 'Danh Sách Phim';
   if (filterType === 'type') {
@@ -65,8 +74,38 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       }
     }
     loadData();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Only scroll to top if there is no saved scroll position waiting to be restored
+    const currentHash = window.location.hash;
+    const hasSavedScroll = sessionStorage.getItem(`scroll_pos_${currentHash}`) !== null;
+    if (!hasSavedScroll) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [filterType, slug, page]);
+
+  // Restore scroll position after movies finish loading when returning back
+  useEffect(() => {
+    if (!loading && movies.length > 0) {
+      const currentHash = window.location.hash;
+      const savedScroll = sessionStorage.getItem(`scroll_pos_${currentHash}`);
+      if (savedScroll !== null) {
+        sessionStorage.removeItem(`scroll_pos_${currentHash}`);
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: Number(savedScroll), behavior: 'auto' });
+        });
+      }
+    }
+  }, [loading, movies]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage === page || newPage < 1 || (totalPages > 1 && newPage > totalPages)) return;
+    setPage(newPage);
+    const targetRoute = newPage === 1
+      ? `${filterType}:${slug}`
+      : `${filterType}:${slug}?page=${newPage}`;
+    onNavigate(targetRoute);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Helper function to generate pagination buttons: e.g. [1, 2, 3, 4, '...', 20]
   const getPaginationItems = (current: number, total: number) => {
@@ -146,7 +185,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           {/* Previous Page */}
           <button
             disabled={page <= 1}
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            onClick={() => handlePageChange(Math.max(1, page - 1))}
             className="flex items-center gap-1 px-3 py-2 rounded-xl glass-panel text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer mr-1"
             title="Trang trước"
           >
@@ -173,7 +212,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             return (
               <button
                 key={`page-${pageNum}`}
-                onClick={() => setPage(pageNum)}
+                onClick={() => handlePageChange(pageNum)}
                 className={`min-w-[36px] h-9 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                   isActive
                     ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
@@ -188,7 +227,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           {/* Next Page */}
           <button
             disabled={page >= totalPages}
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
             className="flex items-center gap-1 px-3 py-2 rounded-xl glass-panel text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer ml-1"
             title="Trang sau"
           >

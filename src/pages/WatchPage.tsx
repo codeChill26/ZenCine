@@ -24,6 +24,7 @@ interface WatchPageProps {
   initialServer?: number;
   initialEpisodeSlug?: string;
   onSelectMovie: (slug: string) => void;
+  onNavigate?: (route: string) => void;
 }
 
 function cleanEpisodeText(name?: string): string {
@@ -40,6 +41,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   initialServer = 0,
   initialEpisodeSlug,
   onSelectMovie,
+  onNavigate,
 }) => {
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeServer[]>([]);
@@ -144,11 +146,32 @@ export const WatchPage: React.FC<WatchPageProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleGoBack = () => {
+  const handleGoBack = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const prevRoute = sessionStorage.getItem('zen_prev_route');
+    if (prevRoute) {
+      const cleanRoute = prevRoute.replace(/^#\/?/, '').trim();
+      if (cleanRoute && !cleanRoute.startsWith(`movie/${movieSlug}`)) {
+        if (onNavigate) {
+          onNavigate(cleanRoute);
+          return;
+        } else {
+          window.location.hash = `/${cleanRoute}`;
+          return;
+        }
+      }
+    }
+
     if (window.history.length > 1) {
       window.history.back();
+    } else if (onNavigate) {
+      onNavigate('home');
     } else {
-      onSelectMovie('home');
+      window.location.hash = '/home';
     }
   };
 
@@ -178,13 +201,14 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   const cleanContent = (movie.content || 'Đang cập nhật nội dung cho bộ phim này...').replace(/<img[^>]*>/g, '');
 
   return (
-    <div className={`min-h-screen text-slate-100 ${theaterMode ? 'bg-black' : 'bg-[#0b0c10]'}`}>
+    <div className={`min-h-screen text-slate-100 ${theaterMode ? 'bg-black' : 'bg-[#0b0c10]'} pt-16 sm:pt-20`}>
       
       {/* Sub-header Bar (Matching Screenshot: ← Quay lại   [Tên phim] • [Tập]) */}
-      <div className="w-full bg-[#0b0c10] border-b border-white/10 px-4 py-2.5 flex items-center justify-between pt-16 sm:pt-20">
+      <div className="w-full bg-[#0b0c10] border-b border-white/10 px-4 py-2.5 flex items-center justify-between relative z-40">
         <button
+          type="button"
           onClick={handleGoBack}
-          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white active:scale-95 transition-all cursor-pointer py-1.5 px-2.5 -ml-2 rounded-xl hover:bg-white/10 active:bg-white/20 select-none relative z-50 touch-manipulation"
         >
           <ArrowLeft className="w-4 h-4 text-slate-300" />
           <span>Quay lại</span>

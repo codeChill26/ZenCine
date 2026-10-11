@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { History, Trash2, PlayCircle, Clock } from 'lucide-react';
 import { useWatchHistory } from '../hooks/useWatchHistory';
 
@@ -8,6 +8,17 @@ interface HistoryPageProps {
 
 export const HistoryPage: React.FC<HistoryPageProps> = ({ onSelectMovie }) => {
   const { history, clearHistory, removeHistoryItem } = useWatchHistory();
+
+  useEffect(() => {
+    const currentHash = window.location.hash || '#/history';
+    const savedScroll = sessionStorage.getItem(`scroll_pos_${currentHash}`);
+    if (savedScroll !== null) {
+      sessionStorage.removeItem(`scroll_pos_${currentHash}`);
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: Number(savedScroll), behavior: 'auto' });
+      });
+    }
+  }, []);
 
   return (
     <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
