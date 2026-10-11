@@ -42,17 +42,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
   const artRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Artplayer | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [gestureSide, setGestureSide] = useState<'left' | 'right' | null>(null);
-  const gestureTimerRef = useRef<any>(null);
+  const triggerGestureDomRef = useRef<((side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => void) | null>(null);
 
-  const triggerGestureFeedback = (side: 'left' | 'right') => {
-    setGestureSide(side);
-    if (gestureTimerRef.current) {
-      clearTimeout(gestureTimerRef.current);
-    }
-    gestureTimerRef.current = setTimeout(() => {
-      setGestureSide(null);
-    }, 600);
+  const triggerGestureFeedback = (side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => {
+    triggerGestureDomRef.current?.(side, text, iconSvg);
   };
 
   useImperativeHandle(ref, () => ({
@@ -81,10 +74,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
   useEffect(() => {
     if (!artRef.current || !url) return;
 
-    // Prevent toolbar from automatically disappearing ("thanh công cụ không được bị mất")
-    Artplayer.CONTROL_HIDE_TIME = 999999999;
-    Artplayer.DBCLICK_FULLSCREEN = false; // Controlled via our custom double action handler
+    // Auto-hide controls after 3s of inactivity when playing
+    Artplayer.CONTROL_HIDE_TIME = 3000;
+    Artplayer.DBCLICK_TIME = 0; // Managed via our custom gesture handler
+    Artplayer.DBCLICK_FULLSCREEN = false; // Managed via our custom gesture handler
     Artplayer.MOBILE_DBCLICK_PLAY = false; // Prevent play/pause on double tap
+    Artplayer.MOBILE_CLICK_PLAY = false; // Prevent unwanted play/pause on tap
 
     let hlsInstance: Hls | null = null;
 
@@ -111,7 +106,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       hotkey: true,
       airplay: true,
       lock: false,
-      fastForward: true,
+      fastForward: false,
+      gesture: false,
       autoPlayback: true,
       playsInline: true,
       moreVideoAttr: {
@@ -262,101 +258,410 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
 
       // =========================================================================
       // GESTURE HANDLER:
-      // 1. Double click khi chưa phóng to => Phóng to (Fullscreen)
-      // 2. Double click khi đã phóng to => Bên phải tua +10s, Bên trái lùi -10s
+      // 1. Double click bên phải = Tua tới 10s (+10s)
+      // 2. Double click bên trái = Tua lùi 10s (-10s)
+      // 3. Double click màn hình (vùng giữa) = Phóng to ra / Thu nhỏ (Fullscreen)
+      // 4. Bấm 1 lần vào màn hình = Ẩn / hiện thanh công cụ
       // =========================================================================
       const playerEl = art.template.$player;
 
+      // Double tap / double click feedback overlay in player DOM (visible in both normal and fullscreen)
+      const leftOverlay = document.createElement('div');
+      leftOverlay.className = 'art-gesture-overlay art-gesture-left';
+      leftOverlay.innerHTML = `
+        <div class="art-gesture-badge">
+          <div class="art-gesture-icons">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </div>
+          <span>-10s</span>
+        </div>
+      `;
+
+      const rightOverlay = document.createElement('div');
+      rightOverlay.className = 'art-gesture-overlay art-gesture-right';
+      rightOverlay.innerHTML = `
+        <div class="art-gesture-badge">
+          <div class="art-gesture-icons">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </div>
+          <span>+10s</span>
+        </div>
+      `;
+
+      const centerOverlay = document.createElement('div');
+      centerOverlay.className = 'art-gesture-overlay art-gesture-center';
+      centerOverlay.innerHTML = `
+        <div class="art-gesture-badge">
+          <div class="art-gesture-icons">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+          </div>
+          <span class="art-center-text">Phóng to</span>
+        </div>
+      `;
+
+      playerEl.appendChild(leftOverlay);
+      playerEl.appendChild(rightOverlay);
+      playerEl.appendChild(centerOverlay);
+
+      let animTimeout: any = null;
+      triggerGestureDomRef.current = (side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => {
+        const targetEl = side === 'left' ? leftOverlay : side === 'right' ? rightOverlay : centerOverlay;
+        leftOverlay.classList.remove('art-gesture-active');
+        rightOverlay.classList.remove('art-gesture-active');
+        centerOverlay.classList.remove('art-gesture-active');
+
+        if (side === 'center') {
+          if (text) {
+            const span = centerOverlay.querySelector('.art-center-text');
+            if (span) span.textContent = text;
+          }
+          if (iconSvg) {
+            const iconContainer = centerOverlay.querySelector('.art-gesture-icons');
+            if (iconContainer) iconContainer.innerHTML = iconSvg;
+          }
+        }
+
+        void targetEl.offsetWidth; // Force CSS reflow to restart animation
+        targetEl.classList.add('art-gesture-active');
+
+        if (animTimeout) clearTimeout(animTimeout);
+        animTimeout = setTimeout(() => {
+          targetEl.classList.remove('art-gesture-active');
+        }, 600);
+      };
+
+      // Auto-hide toolbar controller
+      let hideControlsTimer: any = null;
+      let isBottomHovered = false;
+
+      const hideToolbar = (force = false) => {
+        // Chỉ ẩn thanh công cụ khi video đang phát (hoặc khi ép buộc ẩn do người dùng chạm màn hình) và chuột không hover
+        if (!force && (art.video.paused || isBottomHovered)) return;
+        playerEl.classList.add('art-controls-hidden');
+        playerEl.classList.add('art-hide-cursor');
+        art.controls.show = false;
+        setControlsVisible(false);
+      };
+
+      const showToolbar = (autoHide = true) => {
+        if (hideControlsTimer) {
+          clearTimeout(hideControlsTimer);
+          hideControlsTimer = null;
+        }
+        playerEl.classList.remove('art-controls-hidden');
+        playerEl.classList.remove('art-hide-cursor');
+        art.controls.show = true;
+        setControlsVisible(true);
+
+        // Nếu video đang phát và chuột không hover trên thanh điều khiển, tự động trượt xuống ẩn sau 3 giây
+        if (autoHide && !art.video.paused && !isBottomHovered) {
+          hideControlsTimer = setTimeout(() => {
+            hideToolbar();
+          }, 3000);
+        }
+      };
+
+      const toggleToolbar = () => {
+        const isHidden = playerEl.classList.contains('art-controls-hidden') || !art.controls.show;
+        if (isHidden) {
+          showToolbar(true);
+        } else {
+          hideToolbar(true);
+        }
+      };
+
+      // Handle Double Click / Tap action based on horizontal screen zone
       const handleDoubleAction = (clientX: number) => {
         const rect = playerEl.getBoundingClientRect();
         const clickX = clientX - rect.left;
         const width = rect.width;
-        const isRight = clickX > width / 2;
 
-        const isFs = Boolean(
-          art.fullscreen ||
-          art.fullscreenWeb ||
-          document.fullscreenElement ||
-          (document as any).webkitFullscreenElement
-        );
+        const leftZone = width * 0.38;
+        const rightZone = width * 0.62;
 
-        if (!isFs) {
-          // Chưa phóng to: double click vào film thì phóng to
-          art.fullscreen = true;
-          art.notice.show = '⛶ Phóng to toàn màn hình';
+        if (clickX > rightZone) {
+          // Double click / tap bên phải => Tua tới 10s
+          const dur = art.duration || 999999;
+          art.seek = Math.min(dur, art.currentTime + 10);
+          art.notice.show = '⏩ Tua 10s';
+          triggerGestureFeedback('right');
+        } else if (clickX < leftZone) {
+          // Double click / tap bên trái => Tua lùi 10s
+          art.seek = Math.max(0, art.currentTime - 10);
+          art.notice.show = '⏪ Lùi 10s';
+          triggerGestureFeedback('left');
         } else {
-          // Đã phóng to rồi:
-          // Double click bên phải thì tua 10s
-          // Double click bên trái thì lùi 10s
-          if (isRight) {
-            const dur = art.duration || 999999;
-            art.seek = Math.min(dur, art.currentTime + 10);
-            art.notice.show = '⏩ Tua 10s';
-            triggerGestureFeedback('right');
-          } else {
-            art.seek = Math.max(0, art.currentTime - 10);
-            art.notice.show = '⏪ Lùi 10s';
-            triggerGestureFeedback('left');
+          // Double click / tap màn hình (vùng giữa) => Phóng to ra / Thu nhỏ
+          const willBeFs = !art.fullscreen;
+          art.fullscreen = willBeFs;
+          art.notice.show = willBeFs ? '⛶ Phóng to toàn màn hình' : '⛶ Thu nhỏ màn hình';
+          triggerGestureFeedback(
+            'center',
+            willBeFs ? 'Phóng to' : 'Thu nhỏ',
+            `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>`
+          );
+        }
+      };
+
+      // Mobile Touch Interaction
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let touchStartTime = 0;
+      let lastTouchTapTime = 0;
+      let lastTouchTapX = 0;
+      let lastTouchTapY = 0;
+      let touchSingleTapTimer: any = null;
+      let lastTouchEndTime = 0;
+
+      const onTouchStart = (e: TouchEvent) => {
+        if (e.touches.length === 1) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+          touchStartTime = Date.now();
+        }
+      };
+
+      const onTouchEnd = (e: TouchEvent) => {
+        const target = e.target as HTMLElement;
+        // Bỏ qua nếu chạm vào các thành phần điều khiển trực tiếp
+        if (
+          target.closest('.art-bottom') ||
+          target.closest('.art-controls') ||
+          target.closest('.art-custom-progress-row') ||
+          target.closest('.art-progress') ||
+          target.closest('.art-control') ||
+          target.closest('.art-watermark-badge') ||
+          target.closest('.art-setting') ||
+          target.closest('.art-settings')
+        ) {
+          return;
+        }
+
+        if (e.changedTouches.length === 0) return;
+        const touch = e.changedTouches[0];
+        const moveDist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
+        const touchDuration = Date.now() - touchStartTime;
+
+        // Nếu vuốt màn hình (khoảng cách > 25px) hoặc nhấn giữ lâu (> 500ms), không tính là tap
+        if (moveDist > 25 || touchDuration > 500) {
+          return;
+        }
+
+        lastTouchEndTime = Date.now();
+
+        // Chặn click giả lập của trình duyệt để xử lý tức thì không bị delay 300ms
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+
+        const now = Date.now();
+        const tapInterval = now - lastTouchTapTime;
+        const tapDist = Math.hypot(touch.clientX - lastTouchTapX, touch.clientY - lastTouchTapY);
+
+        if (tapInterval < 380 && tapDist < 55) {
+          // Double Tap trên điện thoại
+          if (touchSingleTapTimer) {
+            clearTimeout(touchSingleTapTimer);
+            touchSingleTapTimer = null;
+          }
+          lastTouchTapTime = 0;
+          handleDoubleAction(touch.clientX);
+          showToolbar(true);
+        } else {
+          // Single Tap đầu tiên
+          lastTouchTapTime = now;
+          lastTouchTapX = touch.clientX;
+          lastTouchTapY = touch.clientY;
+
+          if (touchSingleTapTimer) {
+            clearTimeout(touchSingleTapTimer);
+          }
+          touchSingleTapTimer = setTimeout(() => {
+            touchSingleTapTimer = null;
+            lastTouchTapTime = 0;
+            toggleToolbar();
+          }, 300);
+        }
+      };
+
+      // Desktop Click Interaction
+      let lastDesktopClickTime = 0;
+      let lastDesktopClickX = 0;
+      let lastDesktopClickY = 0;
+      let desktopSingleClickTimer: any = null;
+
+      const onPlayerClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (
+          target.closest('.art-bottom') ||
+          target.closest('.art-controls') ||
+          target.closest('.art-custom-progress-row') ||
+          target.closest('.art-progress') ||
+          target.closest('.art-control') ||
+          target.closest('.art-watermark-badge') ||
+          target.closest('.art-setting') ||
+          target.closest('.art-settings')
+        ) {
+          return;
+        }
+
+        // Bỏ qua click được sinh ra từ touch trên mobile
+        if (Date.now() - lastTouchEndTime < 600) {
+          return;
+        }
+
+        e.stopPropagation();
+        e.preventDefault();
+
+        const now = Date.now();
+        const clickInterval = now - lastDesktopClickTime;
+        const clickDist = Math.hypot(e.clientX - lastDesktopClickX, e.clientY - lastDesktopClickY);
+
+        if (clickInterval < 350 && clickDist < 40) {
+          // Double Click trên desktop
+          if (desktopSingleClickTimer) {
+            clearTimeout(desktopSingleClickTimer);
+            desktopSingleClickTimer = null;
+          }
+          lastDesktopClickTime = 0;
+          handleDoubleAction(e.clientX);
+          showToolbar(true);
+        } else {
+          // Single Click trên desktop
+          lastDesktopClickTime = now;
+          lastDesktopClickX = e.clientX;
+          lastDesktopClickY = e.clientY;
+
+          if (desktopSingleClickTimer) {
+            clearTimeout(desktopSingleClickTimer);
+          }
+          desktopSingleClickTimer = setTimeout(() => {
+            desktopSingleClickTimer = null;
+            lastDesktopClickTime = 0;
+            toggleToolbar();
+          }, 280);
+        }
+      };
+
+      // Di chuyển chuột trên Desktop sẽ khôi phục hiển thị thanh công cụ
+      const onMouseMove = () => {
+        showToolbar(true);
+      };
+
+      // Khi chuột rời khỏi khung player, tự động ẩn sau 1 giây
+      const onMouseLeave = () => {
+        if (!art.video.paused) {
+          if (hideControlsTimer) clearTimeout(hideControlsTimer);
+          hideControlsTimer = setTimeout(() => {
+            hideToolbar();
+          }, 1000);
+        }
+      };
+
+      // Giữ thanh công cụ luôn hiện khi chuột đang hover trong khu vực điều khiển bên dưới (chỉ tính chuột thực tế)
+      const bottomEl = art.template.$bottom;
+      const onBottomMouseEnter = () => {
+        if (window.matchMedia('(pointer: fine)').matches) {
+          isBottomHovered = true;
+          if (hideControlsTimer) {
+            clearTimeout(hideControlsTimer);
+            hideControlsTimer = null;
           }
         }
       };
 
-      let lastTouchTriggerTime = 0;
-
-      // Desktop Double Click
-      const onDblClick = (e: MouseEvent) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('.art-bottom') || target.closest('.art-controls') || target.closest('.art-progress') || target.closest('.art-control')) {
-          return;
-        }
-        if (Date.now() - lastTouchTriggerTime < 500) {
-          return; // Ignore synthesized mouse click from touch
-        }
-        handleDoubleAction(e.clientX);
-      };
-
-      // Mobile Touch Double Tap
-      let lastTapTime = 0;
-      let lastTapX = 0;
-      let lastTapY = 0;
-
-      const onTouchEnd = (e: TouchEvent) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('.art-bottom') || target.closest('.art-controls') || target.closest('.art-progress') || target.closest('.art-control')) {
-          return;
-        }
-        if (e.changedTouches.length === 0) return;
-
-        const touch = e.changedTouches[0];
-        const now = Date.now();
-        const timeDiff = now - lastTapTime;
-        const dist = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
-
-        if (timeDiff > 40 && timeDiff < 320 && dist < 45) {
-          lastTouchTriggerTime = now;
-          lastTapTime = 0;
-          handleDoubleAction(touch.clientX);
-        } else {
-          lastTapTime = now;
-          lastTapX = touch.clientX;
-          lastTapY = touch.clientY;
+      const onBottomMouseLeave = () => {
+        isBottomHovered = false;
+        if (!art.video.paused) {
+          showToolbar(true);
         }
       };
 
-      playerEl.addEventListener('dblclick', onDblClick);
-      playerEl.addEventListener('touchend', onTouchEnd, { passive: true });
+      // Khi chạm vào thanh điều khiển trên điện thoại: Gia hạn đếm ngược tự ẩn
+      const onBottomTouchStart = () => {
+        if (hideControlsTimer) {
+          clearTimeout(hideControlsTimer);
+          hideControlsTimer = null;
+        }
+      };
+
+      const onBottomTouchEnd = () => {
+        if (!art.video.paused) {
+          if (hideControlsTimer) clearTimeout(hideControlsTimer);
+          hideControlsTimer = setTimeout(() => {
+            hideToolbar();
+          }, 3000);
+        }
+      };
+
+      playerEl.addEventListener('click', onPlayerClick, true);
+      playerEl.addEventListener('touchstart', onTouchStart, { passive: true });
+      playerEl.addEventListener('touchend', onTouchEnd, { passive: false });
+      playerEl.addEventListener('mousemove', onMouseMove);
+      playerEl.addEventListener('mouseleave', onMouseLeave);
+      bottomEl?.addEventListener('mouseenter', onBottomMouseEnter);
+      bottomEl?.addEventListener('mouseleave', onBottomMouseLeave);
+      bottomEl?.addEventListener('touchstart', onBottomTouchStart, { passive: true });
+      bottomEl?.addEventListener('touchend', onBottomTouchEnd, { passive: true });
+
+      // Lắng nghe sự kiện phát / dừng video để tự động hẹn giờ ẩn thanh công cụ
+      art.on('video:play', () => {
+        showToolbar(true);
+      });
+
+      art.on('video:playing', () => {
+        showToolbar(true);
+      });
+
+      art.on('video:pause', () => {
+        showToolbar(false);
+      });
+
+      art.on('video:waiting', () => {
+        showToolbar(false);
+      });
 
       // Clean up event listeners on destroy
       art.on('destroy', () => {
-        playerEl.removeEventListener('dblclick', onDblClick);
+        playerEl.removeEventListener('click', onPlayerClick, true);
+        playerEl.removeEventListener('touchstart', onTouchStart);
         playerEl.removeEventListener('touchend', onTouchEnd);
+        playerEl.removeEventListener('mousemove', onMouseMove);
+        playerEl.removeEventListener('mouseleave', onMouseLeave);
+        bottomEl?.removeEventListener('mouseenter', onBottomMouseEnter);
+        bottomEl?.removeEventListener('mouseleave', onBottomMouseLeave);
+        bottomEl?.removeEventListener('touchstart', onBottomTouchStart);
+        bottomEl?.removeEventListener('touchend', onBottomTouchEnd);
+        if (touchSingleTapTimer) clearTimeout(touchSingleTapTimer);
+        if (desktopSingleClickTimer) clearTimeout(desktopSingleClickTimer);
+        if (hideControlsTimer) clearTimeout(hideControlsTimer);
+        leftOverlay.remove();
+        rightOverlay.remove();
+        centerOverlay.remove();
+        triggerGestureDomRef.current = null;
       });
     });
 
-    // Keep controls permanently visible ("thanh công cụ không được bị mất")
+    // Đồng bộ trạng thái hiển thị thanh công cụ giữa Artplayer và React
     setControlsVisible(true);
-    art.on('control', () => {
-      setControlsVisible(true);
+    art.on('control', (state) => {
+      const isShow = Boolean(state);
+      setControlsVisible(isShow);
+      if (art.template?.$player) {
+        if (isShow) {
+          art.template.$player.classList.remove('art-controls-hidden');
+          art.template.$player.classList.remove('art-hide-cursor');
+        } else {
+          art.template.$player.classList.add('art-controls-hidden');
+          art.template.$player.classList.add('art-hide-cursor');
+        }
+      }
     });
 
     if (startTime > 10) {
@@ -381,9 +686,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
     });
 
     return () => {
-      if (gestureTimerRef.current) {
-        clearTimeout(gestureTimerRef.current);
-      }
       if (hlsInstance) {
         hlsInstance.destroy();
       }
@@ -397,38 +699,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
     <div className={`relative w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black group ${className}`}>
       <div ref={artRef} className="w-full h-full select-none" />
 
-      {/* Fullscreen Double-Tap Feedback Animation Overlays */}
-      {gestureSide === 'left' && (
-        <div className="absolute inset-y-0 left-0 w-1/2 flex items-center justify-center bg-white/10 z-30 pointer-events-none animate-in fade-in zoom-in-90 duration-150 rounded-r-full">
-          <div className="flex flex-col items-center justify-center bg-black/70 backdrop-blur-md px-5 py-3 rounded-2xl text-white border border-white/20 shadow-2xl">
-            <div className="flex items-center gap-1 mb-1">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </div>
-            <span className="font-extrabold text-sm tracking-wide">-10s</span>
-          </div>
-        </div>
-      )}
-
-      {gestureSide === 'right' && (
-        <div className="absolute inset-y-0 right-0 w-1/2 flex items-center justify-center bg-white/10 z-30 pointer-events-none animate-in fade-in zoom-in-90 duration-150 rounded-l-full">
-          <div className="flex flex-col items-center justify-center bg-black/70 backdrop-blur-md px-5 py-3 rounded-2xl text-white border border-white/20 shadow-2xl">
-            <div className="flex items-center gap-1 mb-1">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
-            </div>
-            <span className="font-extrabold text-sm tracking-wide">+10s</span>
-          </div>
-        </div>
-      )}
-
       {/* Video Title and Episode Overlay (Bottom Left above progress bar) */}
       {(title || episodeName) && (
         <div
-          className={`absolute bottom-[66px] sm:bottom-[74px] left-3.5 sm:left-5 z-20 pointer-events-none transition-all duration-200 ${
-            controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-100'
+          className={`absolute bottom-[66px] sm:bottom-[74px] left-3.5 sm:left-5 z-20 pointer-events-none transition-all duration-300 ${
+            controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
           }`}
         >
           {episodeName && (
