@@ -309,6 +309,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       playerEl.appendChild(rightOverlay);
       playerEl.appendChild(centerOverlay);
 
+      // Fast-forward 2x speed badge overlay (Hold right side like Facebook / YouTube)
+      const speed2xOverlay = document.createElement('div');
+      speed2xOverlay.className = 'art-speed2x-badge';
+      speed2xOverlay.innerHTML = `
+        <div class="art-speed2x-inner">
+          <span class="art-speed2x-icon">⚡</span>
+          <span class="art-speed2x-text">Tua nhanh 2X</span>
+          <span class="art-speed2x-arrows">>></span>
+        </div>
+      `;
+      playerEl.appendChild(speed2xOverlay);
+
       let animTimeout: any = null;
       triggerGestureDomRef.current = (side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => {
         const targetEl = side === 'left' ? leftOverlay : side === 'right' ? rightOverlay : centerOverlay;
@@ -341,7 +353,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       let isBottomHovered = false;
 
       const hideToolbar = (force = false) => {
-        // Chỉ ẩn thanh công cụ khi video đang phát (hoặc khi ép buộc ẩn do người dùng chạm màn hình) và chuột không hover
         if (!force && (art.video.paused || isBottomHovered)) return;
         playerEl.classList.add('art-controls-hidden');
         playerEl.classList.add('art-hide-cursor');
@@ -359,7 +370,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         art.controls.show = true;
         setControlsVisible(true);
 
-        // Nếu video đang phát và chuột không hover trên thanh điều khiển, tự động trượt xuống ẩn sau 3 giây
         if (autoHide && !art.video.paused && !isBottomHovered) {
           hideControlsTimer = setTimeout(() => {
             hideToolbar();
@@ -367,12 +377,66 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         }
       };
 
-      const toggleToolbar = () => {
-        const isHidden = playerEl.classList.contains('art-controls-hidden') || !art.controls.show;
-        if (isHidden) {
-          showToolbar(true);
+      // Click màn hình: Play / Pause tiện lợi
+      const togglePlayPause = () => {
+        if (hasTriggeredLongPress) return;
+        if (art.video.paused) {
+          art.play();
+          triggerGestureFeedback(
+            'center',
+            'Phát',
+            `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+          );
         } else {
-          hideToolbar(true);
+          art.pause();
+          triggerGestureFeedback(
+            'center',
+            'Tạm dừng',
+            `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+          );
+        }
+        showToolbar(true);
+      };
+
+      // Long-press fast forward 2X (Hold right side like Facebook / YouTube)
+      let longPressTimer: any = null;
+      let isLongPress2xActive = false;
+      let pre2xPlaybackRate = 1.0;
+      let hasTriggeredLongPress = false;
+
+      const startLongPress = (clientX: number) => {
+        const rect = playerEl.getBoundingClientRect();
+        const clickX = clientX - rect.left;
+        // Bấm giữ ở nửa bên phải màn hình
+        if (clickX > rect.width * 0.45) {
+          if (longPressTimer) clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            if (art.video && !art.video.paused) {
+              isLongPress2xActive = true;
+              hasTriggeredLongPress = true;
+              pre2xPlaybackRate = art.playbackRate || 1.0;
+              art.playbackRate = 2.0;
+              speed2xOverlay.classList.add('art-speed2x-active');
+              if (navigator.vibrate) {
+                try { navigator.vibrate(35); } catch (_) {}
+              }
+            }
+          }, 320);
+        }
+      };
+
+      const stopLongPress = () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+        if (isLongPress2xActive) {
+          isLongPress2xActive = false;
+          art.playbackRate = pre2xPlaybackRate || 1.0;
+          speed2xOverlay.classList.remove('art-speed2x-active');
+          setTimeout(() => {
+            hasTriggeredLongPress = false;
+          }, 200);
         }
       };
 
@@ -421,15 +485,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
 
       const onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
+          const touch = e.touches[0];
+          touchStartX = touch.clientX;
+          touchStartY = touch.clientY;
           touchStartTime = Date.now();
+          startLongPress(touch.clientX);
         }
       };
 
       const onTouchEnd = (e: TouchEvent) => {
+        stopLongPress();
+
         const target = e.target as HTMLElement;
-        // Bỏ qua nếu chạm vào các thành phần điều khiển trực tiếp
         if (
           target.closest('.art-bottom') ||
           target.closest('.art-controls') ||
@@ -448,14 +515,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         const moveDist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
         const touchDuration = Date.now() - touchStartTime;
 
-        // Nếu vuốt màn hình (khoảng cách > 25px) hoặc nhấn giữ lâu (> 500ms), không tính là tap
-        if (moveDist > 25 || touchDuration > 500) {
+        // Nếu vừa giữ tua 2x xong thì bỏ qua click/tap
+        if (hasTriggeredLongPress || touchDuration > 380 || moveDist > 25) {
           return;
         }
 
         lastTouchEndTime = Date.now();
 
-        // Chặn click giả lập của trình duyệt để xử lý tức thì không bị delay 300ms
         if (e.cancelable) {
           e.preventDefault();
         }
@@ -474,7 +540,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           handleDoubleAction(touch.clientX);
           showToolbar(true);
         } else {
-          // Single Tap đầu tiên
+          // Single Tap: Bấm là Play / Pause
           lastTouchTapTime = now;
           lastTouchTapX = touch.clientX;
           lastTouchTapY = touch.clientY;
@@ -485,16 +551,41 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           touchSingleTapTimer = setTimeout(() => {
             touchSingleTapTimer = null;
             lastTouchTapTime = 0;
-            toggleToolbar();
-          }, 300);
+            togglePlayPause();
+          }, 280);
         }
       };
 
-      // Desktop Click Interaction
+      const onTouchCancel = () => {
+        stopLongPress();
+      };
+
+      // Desktop Click & Hold Interaction
       let lastDesktopClickTime = 0;
       let lastDesktopClickX = 0;
       let lastDesktopClickY = 0;
       let desktopSingleClickTimer: any = null;
+
+      const onMouseDown = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (
+          target.closest('.art-bottom') ||
+          target.closest('.art-controls') ||
+          target.closest('.art-custom-progress-row') ||
+          target.closest('.art-progress') ||
+          target.closest('.art-control') ||
+          target.closest('.art-watermark-badge')
+        ) {
+          return;
+        }
+        if (e.button === 0) { // Chuột trái bấm giữ
+          startLongPress(e.clientX);
+        }
+      };
+
+      const onMouseUp = () => {
+        stopLongPress();
+      };
 
       const onPlayerClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
@@ -511,8 +602,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           return;
         }
 
-        // Bỏ qua click được sinh ra từ touch trên mobile
-        if (Date.now() - lastTouchEndTime < 600) {
+        if (Date.now() - lastTouchEndTime < 600 || hasTriggeredLongPress) {
           return;
         }
 
@@ -533,7 +623,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           handleDoubleAction(e.clientX);
           showToolbar(true);
         } else {
-          // Single Click trên desktop
+          // Single Click: Play / Pause
           lastDesktopClickTime = now;
           lastDesktopClickX = e.clientX;
           lastDesktopClickY = e.clientY;
@@ -544,8 +634,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           desktopSingleClickTimer = setTimeout(() => {
             desktopSingleClickTimer = null;
             lastDesktopClickTime = 0;
-            toggleToolbar();
-          }, 280);
+            togglePlayPause();
+          }, 260);
         }
       };
 
@@ -556,6 +646,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
 
       // Khi chuột rời khỏi khung player, tự động ẩn sau 1 giây
       const onMouseLeave = () => {
+        stopLongPress();
         if (!art.video.paused) {
           if (hideControlsTimer) clearTimeout(hideControlsTimer);
           hideControlsTimer = setTimeout(() => {
@@ -564,7 +655,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         }
       };
 
-      // Giữ thanh công cụ luôn hiện khi chuột đang hover trong khu vực điều khiển bên dưới (chỉ tính chuột thực tế)
+      // Giữ thanh công cụ luôn hiện khi chuột đang hover trong khu vực điều khiển bên dưới
       const bottomEl = art.template.$bottom;
       const onBottomMouseEnter = () => {
         if (window.matchMedia('(pointer: fine)').matches) {
@@ -583,7 +674,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         }
       };
 
-      // Khi chạm vào thanh điều khiển trên điện thoại: Gia hạn đếm ngược tự ẩn
       const onBottomTouchStart = () => {
         if (hideControlsTimer) {
           clearTimeout(hideControlsTimer);
@@ -601,8 +691,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       };
 
       playerEl.addEventListener('click', onPlayerClick, true);
+      playerEl.addEventListener('mousedown', onMouseDown);
+      playerEl.addEventListener('mouseup', onMouseUp);
       playerEl.addEventListener('touchstart', onTouchStart, { passive: true });
       playerEl.addEventListener('touchend', onTouchEnd, { passive: false });
+      playerEl.addEventListener('touchcancel', onTouchCancel);
       playerEl.addEventListener('mousemove', onMouseMove);
       playerEl.addEventListener('mouseleave', onMouseLeave);
       bottomEl?.addEventListener('mouseenter', onBottomMouseEnter);
@@ -610,7 +703,39 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       bottomEl?.addEventListener('touchstart', onBottomTouchStart, { passive: true });
       bottomEl?.addEventListener('touchend', onBottomTouchEnd, { passive: true });
 
-      // Lắng nghe sự kiện phát / dừng video để tự động hẹn giờ ẩn thanh công cụ
+      // Lắng nghe fullscreen để khóa xoay ngang màn hình điện thoại
+      art.on('fullscreen', (state) => {
+        if (state) {
+          try {
+            if (screen.orientation && (screen.orientation as any).lock) {
+              (screen.orientation as any).lock('landscape').catch(() => {});
+            }
+          } catch (_) {}
+        } else {
+          try {
+            if (screen.orientation && (screen.orientation as any).unlock) {
+              (screen.orientation as any).unlock();
+            }
+          } catch (_) {}
+        }
+      });
+
+      // Tự động xoay ngang vào Fullscreen khi điện thoại nằm ngang
+      const handleAutoRotate = () => {
+        const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        if (!isTouchDevice) return;
+
+        const isLandscape = window.innerWidth > window.innerHeight;
+        if (isLandscape && !art.fullscreen) {
+          art.fullscreen = true;
+        } else if (!isLandscape && art.fullscreen) {
+          art.fullscreen = false;
+        }
+      };
+
+      window.addEventListener('resize', handleAutoRotate);
+      window.addEventListener('orientationchange', handleAutoRotate);
+
       art.on('video:play', () => {
         showToolbar(true);
       });
@@ -630,20 +755,27 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       // Clean up event listeners on destroy
       art.on('destroy', () => {
         playerEl.removeEventListener('click', onPlayerClick, true);
+        playerEl.removeEventListener('mousedown', onMouseDown);
+        playerEl.removeEventListener('mouseup', onMouseUp);
         playerEl.removeEventListener('touchstart', onTouchStart);
         playerEl.removeEventListener('touchend', onTouchEnd);
+        playerEl.removeEventListener('touchcancel', onTouchCancel);
         playerEl.removeEventListener('mousemove', onMouseMove);
         playerEl.removeEventListener('mouseleave', onMouseLeave);
         bottomEl?.removeEventListener('mouseenter', onBottomMouseEnter);
         bottomEl?.removeEventListener('mouseleave', onBottomMouseLeave);
         bottomEl?.removeEventListener('touchstart', onBottomTouchStart);
         bottomEl?.removeEventListener('touchend', onBottomTouchEnd);
+        window.removeEventListener('resize', handleAutoRotate);
+        window.removeEventListener('orientationchange', handleAutoRotate);
         if (touchSingleTapTimer) clearTimeout(touchSingleTapTimer);
         if (desktopSingleClickTimer) clearTimeout(desktopSingleClickTimer);
         if (hideControlsTimer) clearTimeout(hideControlsTimer);
+        if (longPressTimer) clearTimeout(longPressTimer);
         leftOverlay.remove();
         rightOverlay.remove();
         centerOverlay.remove();
+        speed2xOverlay.remove();
         triggerGestureDomRef.current = null;
       });
     });

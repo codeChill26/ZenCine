@@ -126,6 +126,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectMovie, onNavigate })
         movies={latestMovies}
         icon={<Flame className="w-5 h-5 text-red-500" />}
         onSelectMovie={onSelectMovie}
+        onViewMore={() => onNavigate('type:phim-le')}
       />
 
       {/* Phim Lẻ Đỉnh Cao */}

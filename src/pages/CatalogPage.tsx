@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Film } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Film, Star, Clock, Calendar, ArrowUpDown, X } from 'lucide-react';
 import {
   getMoviesByType,
   getMoviesByCategory,
   getMoviesByCountry,
+  getMovieRating,
   CATEGORIES,
   COUNTRIES,
 } from '../services/api';
@@ -29,6 +30,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'default' | 'rating' | 'newest' | 'oldest'>('default');
 
   // Sync internal page state if initialPage changes (from browser back/forward)
   useEffect(() => {
@@ -107,6 +109,20 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Sort Movies: Sao cao | Mới --> Cũ | Cũ --> Mới | Mặc định
+  const sortedMovies = useMemo(() => {
+    if (sortBy === 'rating') {
+      return [...movies].sort((a, b) => Number(getMovieRating(b)) - Number(getMovieRating(a)));
+    }
+    if (sortBy === 'newest') {
+      return [...movies].sort((a, b) => (b.year || 0) - (a.year || 0));
+    }
+    if (sortBy === 'oldest') {
+      return [...movies].sort((a, b) => (a.year || 9999) - (b.year || 9999));
+    }
+    return movies;
+  }, [movies, sortBy]);
+
   // Helper function to generate pagination buttons: e.g. [1, 2, 3, 4, '...', 20]
   const getPaginationItems = (current: number, total: number) => {
     if (total <= 7) {
@@ -124,36 +140,74 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const paginationItems = getPaginationItems(page, totalPages);
 
   return (
-    <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-4 pb-6 border-b border-white/10">
-        <div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white tracking-wide">
-            {title}
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">Trang {page} / {totalPages}</p>
+    <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      {/* Top Header Bar */}
+      <div className="flex items-center justify-between flex-wrap gap-4 pb-5 border-b border-white/10">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-wide">
+              {title}
+            </h1>
+
+            {/* Phân trang mini phía trên: vd: < 2/56 > */}
+            {totalPages > 1 && (
+              <div className="inline-flex items-center gap-1 bg-[#141824] px-2.5 py-1 rounded-xl border border-white/10 text-xs font-bold shadow-inner">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => handlePageChange(Math.max(1, page - 1))}
+                  className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-1 text-slate-300 select-none">
+                  <span className="text-red-500 font-extrabold">{page}</span>/{totalPages}
+                </span>
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                  className="p-1 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  title="Trang sau"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-400">
+            Hiển thị {sortedMovies.length} bộ phim • Trang {page} / {totalPages}
+          </p>
         </div>
 
+        {/* Primary Type Switcher (Luôn chuyển đến danh mục thuần túy hiển thị hết thể loại) */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => onNavigate('type:phim-le')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer ${
-              slug === 'phim-le' ? 'bg-red-600 text-white' : 'glass-panel text-slate-300 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              filterType === 'type' && slug === 'phim-le'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                : 'glass-panel text-slate-300 hover:text-white hover:bg-white/10'
             }`}
           >
             Phim Lẻ
           </button>
           <button
             onClick={() => onNavigate('type:phim-bo')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer ${
-              slug === 'phim-bo' ? 'bg-red-600 text-white' : 'glass-panel text-slate-300 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              filterType === 'type' && slug === 'phim-bo'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                : 'glass-panel text-slate-300 hover:text-white hover:bg-white/10'
             }`}
           >
             Phim Bộ
           </button>
           <button
             onClick={() => onNavigate('type:hoat-hinh')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer ${
-              slug === 'hoat-hinh' ? 'bg-red-600 text-white' : 'glass-panel text-slate-300 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+              filterType === 'type' && slug === 'hoat-hinh'
+                ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                : 'glass-panel text-slate-300 hover:text-white hover:bg-white/10'
             }`}
           >
             Hoạt Hình
@@ -161,14 +215,145 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         </div>
       </div>
 
+      {/* Filter and Sort Toolbar */}
+      <div className="flex items-center justify-between flex-wrap gap-3 py-1">
+        {/* Sort Options: Sao cao | Mới --> Cũ | Cũ --> Mới */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold text-slate-400 flex items-center gap-1 mr-1">
+            <ArrowUpDown className="w-3.5 h-3.5 text-red-500" />
+            <span>Sắp xếp:</span>
+          </span>
+
+          <button
+            onClick={() => setSortBy('default')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              sortBy === 'default'
+                ? 'bg-red-600/20 text-red-400 border border-red-500/30 font-bold'
+                : 'bg-white/5 hover:bg-white/10 text-slate-400 border border-transparent'
+            }`}
+          >
+            Mặc định
+          </button>
+
+          <button
+            onClick={() => setSortBy('rating')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              sortBy === 'rating'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-sm'
+                : 'bg-white/5 hover:bg-white/10 text-slate-400 border border-transparent'
+            }`}
+            title="Sắp xếp phim có điểm đánh giá sao cao nhất"
+          >
+            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+            <span>Sao cao</span>
+          </button>
+
+          <button
+            onClick={() => setSortBy('newest')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              sortBy === 'newest'
+                ? 'bg-red-600/20 text-red-400 border border-red-500/30 font-bold'
+                : 'bg-white/5 hover:bg-white/10 text-slate-400 border border-transparent'
+            }`}
+            title="Sắp xếp theo năm sản xuất mới nhất"
+          >
+            <Clock className="w-3 h-3 text-red-400" />
+            <span>Mới → Cũ</span>
+          </button>
+
+          <button
+            onClick={() => setSortBy('oldest')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              sortBy === 'oldest'
+                ? 'bg-red-600/20 text-red-400 border border-red-500/30 font-bold'
+                : 'bg-white/5 hover:bg-white/10 text-slate-400 border border-transparent'
+            }`}
+            title="Sắp xếp theo năm sản xuất cũ hơn"
+          >
+            <Calendar className="w-3 h-3 text-slate-400" />
+            <span>Cũ → Mới</span>
+          </button>
+        </div>
+
+        {/* Quick Category and Country selector directly in page */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={filterType === 'category' ? slug : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) {
+                onNavigate(filterType === 'type' ? `type:${slug}` : 'type:phim-bo');
+              } else {
+                onNavigate(`category:${val}`);
+              }
+            }}
+            className="bg-[#141824] text-xs font-semibold text-slate-300 rounded-xl px-3 py-1.5 border border-white/10 hover:border-white/20 focus:border-red-500 outline-none cursor-pointer"
+            title="Chọn thể loại phim"
+          >
+            <option value="" className="bg-slate-900 text-white">✨ Tất Cả Thể Loại</option>
+            {CATEGORIES.map((c) => (
+              <option key={c.slug} value={c.slug} className="bg-slate-900 text-white">
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterType === 'country' ? slug : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) {
+                onNavigate(filterType === 'type' ? `type:${slug}` : 'type:phim-le');
+              } else {
+                onNavigate(`country:${val}`);
+              }
+            }}
+            className="bg-[#141824] text-xs font-semibold text-slate-300 rounded-xl px-3 py-1.5 border border-white/10 hover:border-white/20 focus:border-blue-500 outline-none cursor-pointer"
+            title="Chọn quốc gia"
+          >
+            <option value="" className="bg-slate-900 text-white">✨ Tất Cả Quốc Gia</option>
+            {COUNTRIES.map((c) => (
+              <option key={c.slug} value={c.slug} className="bg-slate-900 text-white">
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Category reset / all categories helper badge */}
+        {filterType === 'category' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-400">
+              Đang lọc: <strong className="text-white">{CATEGORIES.find((c) => c.slug === slug)?.name || slug}</strong>
+            </span>
+            <button
+              onClick={() => onNavigate('type:phim-bo')}
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/30 font-semibold cursor-pointer transition-colors"
+              title="Hiện tất cả các thể loại của Phim Bộ"
+            >
+              <span>Xem tất cả Phim Bộ</span>
+              <X className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => onNavigate('type:phim-le')}
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 font-semibold cursor-pointer transition-colors"
+              title="Hiện tất cả các thể loại của Phim Lẻ"
+            >
+              <span>Xem tất cả Phim Lẻ</span>
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center text-slate-400 gap-3">
           <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-semibold">Đang nạp danh sách phim...</p>
         </div>
-      ) : movies.length > 0 ? (
+      ) : sortedMovies.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {movies.map((m) => (
+          {sortedMovies.map((m) => (
             <MovieCard key={m.slug} movie={m} onSelect={onSelectMovie} />
           ))}
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { X, Play, Calendar, Star, Loader2 } from 'lucide-react';
 import { getMovieDetail, getImageUrl, getMovieRating } from '../services/api';
 import type { MovieItem, MovieDetail } from '../types/movie';
@@ -12,6 +12,39 @@ interface QuickInfoModalProps {
 export const QuickInfoModal: React.FC<QuickInfoModalProps> = ({ movie, onClose, onPlay }) => {
   const [detail, setDetail] = useState<MovieDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const isInfoPushedRef = useRef(false);
+
+  const handleClose = (fromPopState = false) => {
+    if (!fromPopState && isInfoPushedRef.current) {
+      isInfoPushedRef.current = false;
+      window.history.back();
+    } else {
+      isInfoPushedRef.current = false;
+    }
+    onClose();
+  };
+
+  // Back button handling on mobile phones
+  useEffect(() => {
+    if (movie) {
+      if (!isInfoPushedRef.current) {
+        window.history.pushState({ zenModal: 'quickInfo' }, '');
+        isInfoPushedRef.current = true;
+      }
+    } else {
+      isInfoPushedRef.current = false;
+    }
+  }, [movie]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (movie) {
+        handleClose(true);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [movie]);
 
   useEffect(() => {
     if (!movie) {
@@ -44,7 +77,7 @@ export const QuickInfoModal: React.FC<QuickInfoModalProps> = ({ movie, onClose, 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={onClose}
+      onClick={() => handleClose()}
     >
       <div
         className="relative w-full max-w-2xl glass-panel rounded-3xl overflow-hidden shadow-2xl border border-white/10 max-h-[90vh] flex flex-col"
@@ -62,8 +95,9 @@ export const QuickInfoModal: React.FC<QuickInfoModalProps> = ({ movie, onClose, 
 
           {/* Close Button */}
           <button
-            onClick={onClose}
+            onClick={() => handleClose()}
             className="absolute top-4 right-4 p-2 rounded-full bg-black/60 hover:bg-black text-white backdrop-blur-md cursor-pointer transition-all"
+            title="Đóng (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
@@ -150,7 +184,7 @@ export const QuickInfoModal: React.FC<QuickInfoModalProps> = ({ movie, onClose, 
             <button
               onClick={() => {
                 onPlay(currentMovie.slug);
-                onClose();
+                handleClose();
               }}
               className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-xl shadow-red-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
             >

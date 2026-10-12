@@ -1,6 +1,6 @@
 import { Logo } from './Logo';
-import React, { useState, useEffect } from 'react';
-import { Search, History, Heart, Menu, X, ChevronDown, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, History, Heart, Menu, X, ChevronDown, User, Layers, Globe } from 'lucide-react';
 import { CATEGORIES, COUNTRIES } from '../services/api';
 
 interface NavbarProps {
@@ -15,6 +15,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
   const [genreDropdown, setGenreDropdown] = useState(false);
   const [countryDropdown, setCountryDropdown] = useState(false);
 
+  const genreTimerRef = useRef<any>(null);
+  const countryTimerRef = useRef<any>(null);
+  const isMenuPushedRef = useRef(false);
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 40);
@@ -22,6 +26,58 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Back button handling on mobile phones to close mobile menu
+  const openMobileMenu = () => {
+    setMobileMenuOpen(true);
+    if (!isMenuPushedRef.current) {
+      window.history.pushState({ zenModal: 'mobileMenu' }, '');
+      isMenuPushedRef.current = true;
+    }
+  };
+
+  const closeMobileMenu = (fromPopState = false, shouldBack = true) => {
+    setMobileMenuOpen(false);
+    if (!fromPopState && shouldBack && isMenuPushedRef.current) {
+      isMenuPushedRef.current = false;
+      window.history.back();
+    } else {
+      isMenuPushedRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (mobileMenuOpen) {
+        closeMobileMenu(true);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [mobileMenuOpen]);
+
+  // Hover handlers for Desktop dropdowns
+  const handleGenreMouseEnter = () => {
+    if (genreTimerRef.current) clearTimeout(genreTimerRef.current);
+    setGenreDropdown(true);
+    setCountryDropdown(false);
+  };
+  const handleGenreMouseLeave = () => {
+    genreTimerRef.current = setTimeout(() => {
+      setGenreDropdown(false);
+    }, 180);
+  };
+
+  const handleCountryMouseEnter = () => {
+    if (countryTimerRef.current) clearTimeout(countryTimerRef.current);
+    setCountryDropdown(true);
+    setGenreDropdown(false);
+  };
+  const handleCountryMouseLeave = () => {
+    countryTimerRef.current = setTimeout(() => {
+      setCountryDropdown(false);
+    }, 180);
+  };
 
   const navLinks = [
     { label: 'Trang Chủ', route: 'home' },
@@ -62,13 +118,22 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
               </button>
             ))}
 
-            <div className="relative">
+            {/* Desktop Thể Loại (Hover to open) */}
+            <div
+              className="relative"
+              onMouseEnter={handleGenreMouseEnter}
+              onMouseLeave={handleGenreMouseLeave}
+            >
               <button
                 onClick={() => {
                   setGenreDropdown(!genreDropdown);
                   setCountryDropdown(false);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  genreDropdown || currentRoute.startsWith('category:')
+                    ? 'text-white bg-white/10 shadow-inner'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                }`}
               >
                 <span>Thể Loại</span>
                 <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${genreDropdown ? 'rotate-180' : ''}`} />
@@ -76,8 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
 
               {genreDropdown && (
                 <div
-                  className="absolute top-full left-0 mt-2 w-72 glass-panel rounded-2xl p-3 shadow-2xl grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50"
-                  onMouseLeave={() => setGenreDropdown(false)}
+                  className="absolute top-full left-0 mt-2 w-72 glass-panel rounded-2xl p-3 shadow-2xl grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50 border border-white/10 bg-[#0f131f]/95 backdrop-blur-2xl"
                 >
                   {CATEGORIES.map((cat) => (
                     <button
@@ -86,7 +150,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
                         onNavigate(`category:${cat.slug}`);
                         setGenreDropdown(false);
                       }}
-                      className="text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-red-600/20 hover:text-red-400 transition-colors cursor-pointer"
+                      className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                        currentRoute === `category:${cat.slug}`
+                          ? 'text-red-400 bg-red-600/20 font-bold'
+                          : 'text-slate-300 hover:text-white hover:bg-red-600/20 hover:text-red-400'
+                      }`}
                     >
                       {cat.name}
                     </button>
@@ -95,13 +163,22 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
               )}
             </div>
 
-            <div className="relative">
+            {/* Desktop Quốc Gia (Hover to open) */}
+            <div
+              className="relative"
+              onMouseEnter={handleCountryMouseEnter}
+              onMouseLeave={handleCountryMouseLeave}
+            >
               <button
                 onClick={() => {
                   setCountryDropdown(!countryDropdown);
                   setGenreDropdown(false);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                  countryDropdown || currentRoute.startsWith('country:')
+                    ? 'text-white bg-white/10 shadow-inner'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                }`}
               >
                 <span>Quốc Gia</span>
                 <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${countryDropdown ? 'rotate-180' : ''}`} />
@@ -109,8 +186,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
 
               {countryDropdown && (
                 <div
-                  className="absolute top-full left-0 mt-2 w-56 glass-panel rounded-2xl p-3 shadow-2xl grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50"
-                  onMouseLeave={() => setCountryDropdown(false)}
+                  className="absolute top-full left-0 mt-2 w-60 glass-panel rounded-2xl p-3 shadow-2xl grid grid-cols-2 gap-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50 border border-white/10 bg-[#0f131f]/95 backdrop-blur-2xl"
                 >
                   {COUNTRIES.map((c) => (
                     <button
@@ -119,7 +195,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
                         onNavigate(`country:${c.slug}`);
                         setCountryDropdown(false);
                       }}
-                      className="text-left px-3 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-red-600/20 hover:text-red-400 transition-colors cursor-pointer"
+                      className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                        currentRoute === `country:${c.slug}`
+                          ? 'text-red-400 bg-red-600/20 font-bold'
+                          : 'text-slate-300 hover:text-white hover:bg-red-600/20 hover:text-red-400'
+                      }`}
                     >
                       {c.name}
                     </button>
@@ -168,7 +248,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
             </button>
           </div>
 
-          {/* Mobile Right Actions: Search, User, Menu matching screenshot */}
+          {/* Mobile Right Actions: Search, User, Menu */}
           <div className="flex md:hidden items-center gap-1">
             <button
               onClick={onOpenSearch}
@@ -187,7 +267,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
             </button>
 
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => {
+                if (mobileMenuOpen) {
+                  closeMobileMenu();
+                } else {
+                  openMobileMenu();
+                }
+              }}
               className="p-2 text-slate-200 hover:text-white active:scale-95 transition-all cursor-pointer"
               title="Menu"
             >
@@ -200,41 +286,53 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
           <>
             {/* Click-outside backdrop overlay */}
             <div
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[-1]"
-              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[-1]"
+              onClick={() => closeMobileMenu()}
             />
 
-            <div className="md:hidden mt-3 pb-4 border-t border-white/10 pt-3 space-y-2 max-h-[calc(100vh-5.5rem)] overflow-y-auto no-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
-              {navLinks.map((item) => (
-                <button
-                  key={item.route}
-                  onClick={() => {
-                    onNavigate(item.route);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-                    currentRoute === item.route
-                      ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-                      : 'text-slate-300 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className="md:hidden mt-3 pb-6 border-t border-white/10 pt-3 space-y-3 max-h-[calc(100vh-5.5rem)] overflow-y-auto no-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+              {/* Primary Nav Links */}
+              <div className="space-y-1">
+                {navLinks.map((item) => (
+                  <button
+                    key={item.route}
+                    onClick={() => {
+                      onNavigate(item.route);
+                      closeMobileMenu(false, false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                      currentRoute === item.route
+                        ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                        : 'text-slate-300 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {currentRoute === item.route && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
+                    )}
+                  </button>
+                ))}
+              </div>
 
+              {/* Full Categories Section on Mobile */}
               <div className="pt-2 border-t border-white/10">
-                <div className="text-xs font-semibold text-slate-400 px-4 py-1.5 uppercase tracking-wider">
-                  Thể Loại Nổi Bật
+                <div className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-red-400 uppercase tracking-wider">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Thể Loại Phim ({CATEGORIES.length})</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 p-2">
-                  {CATEGORIES.slice(0, 8).map((cat) => (
+                <div className="grid grid-cols-2 gap-1.5 p-2">
+                  {CATEGORIES.map((cat) => (
                     <button
                       key={cat.slug}
                       onClick={() => {
                         onNavigate(`category:${cat.slug}`);
-                        setMobileMenuOpen(false);
+                        closeMobileMenu(false, false);
                       }}
-                      className="text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/5 active:bg-red-600/20 transition-colors cursor-pointer"
+                      className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer border ${
+                        currentRoute === `category:${cat.slug}`
+                          ? 'bg-red-600 text-white border-red-500 font-bold'
+                          : 'bg-white/5 border-white/5 text-slate-300 hover:text-white hover:bg-white/10 active:bg-red-600/20'
+                      }`}
                     >
                       {cat.name}
                     </button>
@@ -242,25 +340,32 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
                 </div>
               </div>
 
+              {/* Full Countries Section on Mobile */}
               <div className="pt-2 border-t border-white/10">
-                <div className="text-xs font-semibold text-slate-400 px-4 py-1.5 uppercase tracking-wider">
-                  Quốc Gia
+                <div className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-blue-400 uppercase tracking-wider">
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Quốc Gia ({COUNTRIES.length})</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 p-2">
+                <div className="grid grid-cols-2 gap-1.5 p-2">
                   {COUNTRIES.map((c) => (
                     <button
                       key={c.slug}
                       onClick={() => {
                         onNavigate(`country:${c.slug}`);
-                        setMobileMenuOpen(false);
+                        closeMobileMenu(false, false);
                       }}
-                      className="text-left px-3 py-2 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/5 active:bg-red-600/20 transition-colors cursor-pointer"
+                      className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer border ${
+                        currentRoute === `country:${c.slug}`
+                          ? 'bg-blue-600 text-white border-blue-500 font-bold'
+                          : 'bg-white/5 border-white/5 text-slate-300 hover:text-white hover:bg-white/10 active:bg-blue-600/20'
+                      }`}
                     >
                       {c.name}
                     </button>
                   ))}
                 </div>
               </div>
+
             </div>
           </>
         )}
@@ -268,3 +373,4 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
     </header>
   );
 };
+

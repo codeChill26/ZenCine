@@ -39,21 +39,31 @@ export const MovieRow: React.FC<MovieRowProps> = ({
     <section className="my-10 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between mb-4">
-          <div className="flex items-center gap-3">
+          {/* Section Title with link capability */}
+          <div
+            onClick={onViewMore}
+            className={`flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0 ${
+              onViewMore ? 'cursor-pointer group select-none' : ''
+            }`}
+          >
             {icon && (
-              <div className="p-2 rounded-xl bg-red-600/10 text-red-500 border border-red-500/20">
+              <div className="p-2 rounded-xl bg-red-600/10 text-red-500 border border-red-500/20 shrink-0">
                 {icon}
               </div>
             )}
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide flex items-center gap-2">
-                {title}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-2xl font-black text-white tracking-wide flex items-center gap-1.5 group-hover:text-red-400 transition-colors">
+                <span className="truncate">{title}</span>
+                {onViewMore && (
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-red-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                )}
               </h2>
-              {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+              {subtitle && <p className="text-xs text-slate-400 mt-0.5 truncate hidden sm:block">{subtitle}</p>}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Desktop Right Controls (Hidden on mobile where swiping is natural) */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
             {onViewMore && (
               <button
                 onClick={onViewMore}

@@ -53,7 +53,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
   const [rawResults, setRawResults] = useState<MovieItem[]>([]);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false); // Mặc định tìm trực tiếp, không choán chỗ
 
   // Filter States
   const [selectedType, setSelectedType] = useState<string>('');
@@ -63,16 +63,43 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
   const [sortBy, setSortBy] = useState<'latest' | 'year' | 'name'>('latest');
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSearchPushedRef = useRef(false);
 
-  // Reset or initialize on open
+  // Safe close that respects browser history on mobile
+  const handleClose = (fromPopState = false) => {
+    if (!fromPopState && isSearchPushedRef.current) {
+      isSearchPushedRef.current = false;
+      window.history.back();
+    } else {
+      isSearchPushedRef.current = false;
+    }
+    onClose();
+  };
+
+  // Mobile Back button handling: Pressing Back closes Search Modal
   useEffect(() => {
     if (isOpen) {
+      if (!isSearchPushedRef.current) {
+        window.history.pushState({ zenModal: 'searchModal' }, '');
+        isSearchPushedRef.current = true;
+      }
       setTimeout(() => inputRef.current?.focus(), 100);
-      // If modal is opened and results are empty, fetch initial trending to browse
       if (rawResults.length === 0 && !keyword) {
         loadDefaultList();
       }
+    } else {
+      isSearchPushedRef.current = false;
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isOpen) {
+        handleClose(true);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [isOpen]);
 
   // Keyboard shortcut Ctrl+K and ESC
@@ -80,10 +107,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        if (isOpen) onClose();
+        if (isOpen) handleClose();
       }
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        handleClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -201,10 +228,24 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
     setSortBy('latest');
   };
 
+  const availableYears = useMemo(() => {
+    const yearsSet = new Set<string>();
+    rawResults.forEach((item) => {
+      if (item.year && item.year > 1990) {
+        yearsSet.add(item.year.toString());
+      }
+    });
+    const sorted = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+    return sorted.length > 0 ? sorted : YEARS;
+  }, [rawResults]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 sm:pt-16 px-3 sm:px-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-8 sm:pt-16 px-3 sm:px-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={() => handleClose()}
+    >
       <div
         className="w-full max-w-5xl glass-panel rounded-3xl p-5 sm:p-7 shadow-2xl border border-white/10 max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -220,7 +261,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Tìm kiếm phim, diễn viên, anime... (ví dụ: Batman, Vạn Giới Độc Tôn)"
+            placeholder="Tìm kiếm phim trực tiếp... (gõ tên phim hoặc diễn viên)"
             className="w-full bg-transparent text-base sm:text-xl font-bold text-white placeholder:text-slate-500 outline-none"
           />
 
@@ -234,7 +275,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
             </button>
           )}
 
-          {/* Toggle Filter Bar */}
+          {/* Toggle Filter Bar (Tìm Chi Tiết lúc cần) */}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
@@ -242,10 +283,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                 ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30'
                 : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
             }`}
-            title="Bật/Tắt bộ lọc"
+            title="Lọc chi tiết theo năm, thể loại, quốc gia"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Bộ Lọc</span>
+            <span className="hidden sm:inline">{showFilters ? 'Ẩn Lọc' : 'Lọc Chi Tiết'}</span>
             {activeFilterCount > 0 && (
               <span className="w-4 h-4 rounded-full bg-white text-red-600 text-[10px] font-black flex items-center justify-center">
                 {activeFilterCount}
@@ -255,16 +296,16 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
 
           {/* Close Modal Button */}
           <button
-            onClick={onClose}
+            onClick={() => handleClose()}
             className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 cursor-pointer transition-colors flex items-center justify-center"
-            title="Đóng"
+            title="Đóng (Esc)"
             aria-label="Đóng tìm kiếm"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Filter Toolbar Section */}
+        {/* Filter Toolbar Section (Mặc định ẩn, chỉ mở khi cần lọc chi tiết) */}
         {showFilters && (
           <div className="py-4 border-b border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
@@ -328,7 +369,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                 </select>
               </div>
 
-              {/* 4. Năm Phát Hành */}
+              {/* 4. Năm Phát Hành (Chỉ hiện các năm thực tế có phim) */}
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
                   <Calendar className="w-3 h-3 text-emerald-400" />
@@ -340,7 +381,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                   className="w-full bg-[#121622] text-xs font-medium text-slate-200 rounded-xl px-2.5 py-2 border border-white/10 focus:border-red-500 focus:outline-none cursor-pointer"
                 >
                   <option value="" className="bg-slate-900 text-white">Tất cả các năm</option>
-                  {YEARS.map((y) => (
+                  {availableYears.map((y) => (
                     <option key={y} value={y} className="bg-slate-900 text-white">
                       Năm {y}
                     </option>
@@ -437,7 +478,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                     movie={m}
                     onSelect={(slug) => {
                       onSelectMovie(slug);
-                      onClose();
+                      handleClose();
                     }}
                   />
                 ))}
@@ -447,10 +488,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
             <div className="py-20 text-center text-slate-500 space-y-3">
               <Film className="w-12 h-12 mx-auto opacity-30 text-red-500" />
               <p className="text-base font-semibold text-slate-300">
-                Không tìm thấy phim phù hợp với bộ lọc hiện tại
+                Không tìm thấy phim phù hợp
               </p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Hãy thử nới lỏng các tiêu chí (bỏ bớt năm, thể loại) hoặc thử với từ khóa khác.
+                Hãy thử kiểm tra lại chính tả từ khóa hoặc bấm "Xóa bộ lọc" nếu đang lọc.
               </p>
               {activeFilterCount > 0 && (
                 <button
