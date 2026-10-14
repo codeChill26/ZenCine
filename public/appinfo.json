@@ -1,0 +1,16 @@
+{
+  "id": "com.zencine.tv",
+  "version": "1.0.0",
+  "vendor": "ZenCine",
+  "type": "web",
+  "main": "index.html",
+  "title": "ZenCine",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgImage": "bgImage.png",
+  "splashBackground": "splashBackground.png",
+  "resolution": "1920x1080",
+  "requiredVersion": "4.0.0",
+  "handlesRelaunch": true,
+  "supportGpu": true
+}

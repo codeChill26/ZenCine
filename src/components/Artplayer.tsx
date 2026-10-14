@@ -5,6 +5,7 @@ import Hls from 'hls.js';
 export interface VideoPlayerRef {
   rewind: (seconds?: number) => void;
   forward: (seconds?: number) => void;
+  toggleFullscreen: (target?: boolean) => void;
   getInstance: () => Artplayer | null;
 }
 
@@ -29,6 +30,46 @@ function cleanEpisodeBadge(name: string): string {
   return normalized ? `TẬP ${normalized.toUpperCase()}` : 'TẬP 01';
 }
 
+// Khóa xoay ngang màn hình (Hỗ trợ Capacitor Plugin + Web Screen Orientation API)
+async function lockLandscape(): Promise<boolean> {
+  // 1. Thử qua Capacitor ScreenOrientation nếu đang chạy trong app native / APK
+  try {
+    const { ScreenOrientation } = await import('@capacitor/screen-orientation');
+    await ScreenOrientation.lock({ orientation: 'landscape' });
+    return true;
+  } catch {}
+
+  // 2. Thử qua Web Screen Orientation API tiêu chuẩn trên Chrome/Android/PWA
+  try {
+    const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
+    if (orientation && typeof orientation.lock === 'function') {
+      await orientation.lock('landscape');
+      return true;
+    } else if ((screen as any).lockOrientation) {
+      return Boolean((screen as any).lockOrientation('landscape'));
+    }
+  } catch {}
+
+  return false;
+}
+
+// Mở khóa xoay màn hình khi thoát toàn màn hình
+async function unlockOrientation(): Promise<void> {
+  try {
+    const { ScreenOrientation } = await import('@capacitor/screen-orientation');
+    await ScreenOrientation.unlock().catch(() => {});
+  } catch {}
+
+  try {
+    const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
+    if (orientation && typeof orientation.unlock === 'function') {
+      orientation.unlock();
+    } else if ((screen as any).unlockOrientation) {
+      (screen as any).unlockOrientation();
+    }
+  } catch {}
+}
+
 export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
   url,
   poster,
@@ -41,8 +82,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
 }, ref) => {
   const artRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Artplayer | null>(null);
-  const [controlsVisible, setControlsVisible] = useState(true);
+  const [isSimulatedLandscapeState, setIsSimulatedLandscapeState] = useState(false);
   const triggerGestureDomRef = useRef<((side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => void) | null>(null);
+  const toggleFullscreenRef = useRef<((target?: boolean) => void) | null>(null);
 
   const triggerGestureFeedback = (side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => {
     triggerGestureDomRef.current?.(side, text, iconSvg);
@@ -68,6 +110,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         triggerGestureFeedback('right');
       }
     },
+    toggleFullscreen: (target?: boolean) => {
+      toggleFullscreenRef.current?.(target);
+    },
     getInstance: () => instanceRef.current,
   }));
 
@@ -82,6 +127,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
     Artplayer.MOBILE_CLICK_PLAY = false; // Prevent unwanted play/pause on tap
 
     let hlsInstance: Hls | null = null;
+
+    const safeTitle = (title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeEp = episodeName ? cleanEpisodeBadge(episodeName) : '';
 
     const art = new Artplayer({
       container: artRef.current,
@@ -99,7 +147,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       loop: false,
       playbackRate: false,
       aspectRatio: false,
-      fullscreen: true,
+      fullscreen: false, // Dùng nút custom fullscreen để tự động xoay ngang điện thoại chuẩn xác
       fullscreenWeb: false,
       theme: '#e50914',
       lang: 'vi',
@@ -138,6 +186,22 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
             top: '12px',
             right: '14px',
             zIndex: '15',
+          },
+        },
+        {
+          name: 'titleOverlay',
+          html: `
+            <div class="art-title-layer">
+              ${safeEp ? `<div class="art-title-badge-wrap"><span class="art-title-badge">${safeEp}</span></div>` : ''}
+              ${safeTitle ? `<h2 class="art-title-text">${safeTitle}</h2>` : ''}
+            </div>
+          `,
+          style: {
+            position: 'absolute',
+            bottom: '72px',
+            left: '16px',
+            zIndex: '20',
+            pointerEvents: 'none',
           },
         },
       ],
@@ -199,6 +263,24 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
             art.notice.show = `⚡ Tốc độ: ${nextRate}x`;
           },
         },
+        {
+          name: 'fullscreenCustom',
+          position: 'right',
+          index: 70,
+          html: `
+            <div class="art-custom-fs-btn" title="Toàn màn hình">
+              <svg class="art-icon-fs-enter" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              </svg>
+              <svg class="art-icon-fs-exit" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+              </svg>
+            </div>
+          `,
+          click: function () {
+            toggleFullscreenRef.current?.();
+          },
+        },
       ],
       customType: {
         m3u8: function (video: HTMLVideoElement, url: string, art: Artplayer) {
@@ -257,15 +339,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       }
 
       // =========================================================================
-      // GESTURE HANDLER:
-      // 1. Double click bên phải = Tua tới 10s (+10s)
-      // 2. Double click bên trái = Tua lùi 10s (-10s)
-      // 3. Double click màn hình (vùng giữa) = Phóng to ra / Thu nhỏ (Fullscreen)
-      // 4. Bấm 1 lần vào màn hình = Ẩn / hiện thanh công cụ
+      // GESTURE & OVERLAYS:
       // =========================================================================
       const playerEl = art.template.$player;
 
-      // Double tap / double click feedback overlay in player DOM (visible in both normal and fullscreen)
+      // Double tap / double click feedback overlay in player DOM
       const leftOverlay = document.createElement('div');
       leftOverlay.className = 'art-gesture-overlay art-gesture-left';
       leftOverlay.innerHTML = `
@@ -357,7 +435,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         playerEl.classList.add('art-controls-hidden');
         playerEl.classList.add('art-hide-cursor');
         art.controls.show = false;
-        setControlsVisible(false);
       };
 
       const showToolbar = (autoHide = true) => {
@@ -368,7 +445,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         playerEl.classList.remove('art-controls-hidden');
         playerEl.classList.remove('art-hide-cursor');
         art.controls.show = true;
-        setControlsVisible(true);
 
         if (autoHide && !art.video.paused && !isBottomHovered) {
           hideControlsTimer = setTimeout(() => {
@@ -398,17 +474,167 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         showToolbar(true);
       };
 
+      // =========================================================================
+      // FULLSCREEN & AUTO ROTATE LANDSCAPE MANAGEMENT
+      // =========================================================================
+      let isSimulatedLandscape = false;
+      let isManualFullscreen = false;
+
+      const isCurrentlyFullscreen = () => {
+        return Boolean(
+          document.fullscreenElement === playerEl ||
+          (document as any).webkitFullscreenElement === playerEl ||
+          isSimulatedLandscape
+        );
+      };
+
+      const updateFullscreenIcons = (isFs: boolean) => {
+        const enterIcon = art.template.$controlsRight?.querySelector('.art-icon-fs-enter') as HTMLElement | null;
+        const exitIcon = art.template.$controlsRight?.querySelector('.art-icon-fs-exit') as HTMLElement | null;
+        const btn = art.template.$controlsRight?.querySelector('.art-custom-fs-btn') as HTMLElement | null;
+
+        if (enterIcon && exitIcon) {
+          if (isFs) {
+            enterIcon.style.display = 'none';
+            exitIcon.style.display = 'inline-flex';
+            if (btn) btn.title = 'Thu nhỏ màn hình';
+          } else {
+            enterIcon.style.display = 'inline-flex';
+            exitIcon.style.display = 'none';
+            if (btn) btn.title = 'Toàn màn hình';
+          }
+        }
+
+        if (isFs) {
+          playerEl.classList.add('art-fullscreen');
+        } else {
+          playerEl.classList.remove('art-fullscreen');
+        }
+
+        art.emit('fullscreen', isFs);
+      };
+
+      const enableSimulatedLandscape = () => {
+        if (isSimulatedLandscape) return;
+        isSimulatedLandscape = true;
+        playerEl.classList.add('art-simulated-landscape');
+        document.body.classList.add('zen-simulated-landscape-active');
+        setIsSimulatedLandscapeState(true);
+        updateFullscreenIcons(true);
+        setTimeout(() => art.emit('resize'), 80);
+      };
+
+      const disableSimulatedLandscape = () => {
+        if (!isSimulatedLandscape) return;
+        isSimulatedLandscape = false;
+        playerEl.classList.remove('art-simulated-landscape');
+        document.body.classList.remove('zen-simulated-landscape-active');
+        setIsSimulatedLandscapeState(false);
+        updateFullscreenIcons(isCurrentlyFullscreen());
+        setTimeout(() => art.emit('resize'), 80);
+      };
+
+      const enterLandscapeFullscreen = async () => {
+        isManualFullscreen = true;
+        const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+        // 1. Kích hoạt khóa xoay ngang màn hình ngay trong chuỗi thao tác của người dùng
+        lockLandscape().catch(() => {});
+
+        // 2. Yêu cầu toàn màn hình phần tử trình phát
+        try {
+          if (playerEl.requestFullscreen) {
+            await playerEl.requestFullscreen({ navigationUI: 'hide' });
+          } else if ((playerEl as any).webkitRequestFullscreen) {
+            await (playerEl as any).webkitRequestFullscreen();
+          }
+        } catch (err) {
+          console.warn('Native requestFullscreen could not be invoked:', err);
+        }
+
+        // Thử lại orientation lock sau khi fullscreen vừa mở
+        lockLandscape().catch(() => {});
+
+        // 3. Với điện thoại: Nếu hệ thống không tự xoay ngang (iOS, máy bật khóa xoay dọc), bật xoay ngang giả lập CSS 90 độ
+        if (isTouch) {
+          setTimeout(() => {
+            const isNowLandscape = window.innerWidth > window.innerHeight;
+            if (!isNowLandscape) {
+              enableSimulatedLandscape();
+            } else {
+              disableSimulatedLandscape();
+            }
+            updateFullscreenIcons(true);
+            art.emit('resize');
+          }, 180);
+        } else {
+          updateFullscreenIcons(true);
+          art.emit('resize');
+        }
+
+        art.notice.show = '⛶ Phóng to toàn màn hình';
+        triggerGestureFeedback(
+          'center',
+          'Phóng to',
+          `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>`
+        );
+      };
+
+      const exitLandscapeFullscreen = async () => {
+        isManualFullscreen = false;
+        disableSimulatedLandscape();
+
+        try {
+          if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+            if (document.exitFullscreen) {
+              await document.exitFullscreen().catch(() => {});
+            } else if ((document as any).webkitExitFullscreen) {
+              await (document as any).webkitExitFullscreen().catch(() => {});
+            }
+          }
+        } catch (err) {
+          console.warn('Exit fullscreen error:', err);
+        }
+
+        unlockOrientation().catch(() => {});
+
+        updateFullscreenIcons(false);
+        art.emit('resize');
+
+        art.notice.show = '⛶ Thu nhỏ màn hình';
+        triggerGestureFeedback(
+          'center',
+          'Thu nhỏ',
+          `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" /></svg>`
+        );
+      };
+
+      const toggleLandscapeFullscreen = (target?: boolean) => {
+        const current = isCurrentlyFullscreen();
+        const willBe = target !== undefined ? target : !current;
+        if (willBe) {
+          enterLandscapeFullscreen();
+        } else {
+          exitLandscapeFullscreen();
+        }
+      };
+
+      toggleFullscreenRef.current = toggleLandscapeFullscreen;
+
       // Long-press fast forward 2X (Hold right side like Facebook / YouTube)
       let longPressTimer: any = null;
       let isLongPress2xActive = false;
       let pre2xPlaybackRate = 1.0;
       let hasTriggeredLongPress = false;
 
-      const startLongPress = (clientX: number) => {
+      const startLongPress = (clientX: number, clientY: number) => {
         const rect = playerEl.getBoundingClientRect();
-        const clickX = clientX - rect.left;
-        // Bấm giữ ở nửa bên phải màn hình
-        if (clickX > rect.width * 0.45) {
+        // Khi xoay ngang giả lập (90 độ), trục tiến độ video chạy dọc theo clientY của điện thoại
+        const pos = isSimulatedLandscape ? (clientY - rect.top) : (clientX - rect.left);
+        const dimension = isSimulatedLandscape ? rect.height : rect.width;
+
+        // Bấm giữ ở nửa bên phải video
+        if (pos > dimension * 0.45) {
           if (longPressTimer) clearTimeout(longPressTimer);
           longPressTimer = setTimeout(() => {
             if (art.video && !art.video.paused) {
@@ -418,7 +644,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
               art.playbackRate = 2.0;
               speed2xOverlay.classList.add('art-speed2x-active');
               if (navigator.vibrate) {
-                try { navigator.vibrate(35); } catch (_) {}
+                try { navigator.vibrate(35); } catch {}
               }
             }
           }, 320);
@@ -441,35 +667,29 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       };
 
       // Handle Double Click / Tap action based on horizontal screen zone
-      const handleDoubleAction = (clientX: number) => {
+      const handleDoubleAction = (clientX: number, clientY: number) => {
         const rect = playerEl.getBoundingClientRect();
-        const clickX = clientX - rect.left;
-        const width = rect.width;
+        // Khi xoay ngang giả lập (90 độ), trục trái/phải của video tương ứng với trục dọc điện thoại
+        const pos = isSimulatedLandscape ? (clientY - rect.top) : (clientX - rect.left);
+        const dimension = isSimulatedLandscape ? rect.height : rect.width;
 
-        const leftZone = width * 0.38;
-        const rightZone = width * 0.62;
+        const leftZone = dimension * 0.38;
+        const rightZone = dimension * 0.62;
 
-        if (clickX > rightZone) {
+        if (pos > rightZone) {
           // Double click / tap bên phải => Tua tới 10s
           const dur = art.duration || 999999;
           art.seek = Math.min(dur, art.currentTime + 10);
           art.notice.show = '⏩ Tua 10s';
           triggerGestureFeedback('right');
-        } else if (clickX < leftZone) {
+        } else if (pos < leftZone) {
           // Double click / tap bên trái => Tua lùi 10s
           art.seek = Math.max(0, art.currentTime - 10);
           art.notice.show = '⏪ Lùi 10s';
           triggerGestureFeedback('left');
         } else {
           // Double click / tap màn hình (vùng giữa) => Phóng to ra / Thu nhỏ
-          const willBeFs = !art.fullscreen;
-          art.fullscreen = willBeFs;
-          art.notice.show = willBeFs ? '⛶ Phóng to toàn màn hình' : '⛶ Thu nhỏ màn hình';
-          triggerGestureFeedback(
-            'center',
-            willBeFs ? 'Phóng to' : 'Thu nhỏ',
-            `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>`
-          );
+          toggleLandscapeFullscreen();
         }
       };
 
@@ -489,7 +709,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           touchStartX = touch.clientX;
           touchStartY = touch.clientY;
           touchStartTime = Date.now();
-          startLongPress(touch.clientX);
+          startLongPress(touch.clientX, touch.clientY);
         }
       };
 
@@ -515,7 +735,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         const moveDist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
         const touchDuration = Date.now() - touchStartTime;
 
-        // Nếu vừa giữ tua 2x xong thì bỏ qua click/tap
         if (hasTriggeredLongPress || touchDuration > 380 || moveDist > 25) {
           return;
         }
@@ -537,7 +756,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
             touchSingleTapTimer = null;
           }
           lastTouchTapTime = 0;
-          handleDoubleAction(touch.clientX);
+          handleDoubleAction(touch.clientX, touch.clientY);
           showToolbar(true);
         } else {
           // Single Tap: Bấm là Play / Pause
@@ -579,7 +798,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           return;
         }
         if (e.button === 0) { // Chuột trái bấm giữ
-          startLongPress(e.clientX);
+          startLongPress(e.clientX, e.clientY);
         }
       };
 
@@ -620,7 +839,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
             desktopSingleClickTimer = null;
           }
           lastDesktopClickTime = 0;
-          handleDoubleAction(e.clientX);
+          handleDoubleAction(e.clientX, e.clientY);
           showToolbar(true);
         } else {
           // Single Click: Play / Pause
@@ -703,38 +922,64 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       bottomEl?.addEventListener('touchstart', onBottomTouchStart, { passive: true });
       bottomEl?.addEventListener('touchend', onBottomTouchEnd, { passive: true });
 
-      // Lắng nghe fullscreen để khóa xoay ngang màn hình điện thoại
-      art.on('fullscreen', (state) => {
-        if (state) {
-          try {
-            if (screen.orientation && (screen.orientation as any).lock) {
-              (screen.orientation as any).lock('landscape').catch(() => {});
-            }
-          } catch (_) {}
-        } else {
-          try {
-            if (screen.orientation && (screen.orientation as any).unlock) {
-              (screen.orientation as any).unlock();
-            }
-          } catch (_) {}
+      // Lắng nghe thoát toàn màn hình native (Esc trên bàn phím hoặc nút Back trên Android)
+      const onNativeFullscreenChange = () => {
+        const isNativeFs = Boolean(
+          document.fullscreenElement === playerEl ||
+          (document as any).webkitFullscreenElement === playerEl
+        );
+        if (!isNativeFs && !isSimulatedLandscape) {
+          exitLandscapeFullscreen();
         }
-      });
+      };
 
-      // Tự động xoay ngang vào Fullscreen khi điện thoại nằm ngang
+      document.addEventListener('fullscreenchange', onNativeFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', onNativeFullscreenChange);
+
+      // Tự động xoay ngang vào Fullscreen khi điện thoại được xoay ngang vật lý
+      let lastWasLandscape = window.innerWidth > window.innerHeight;
+
       const handleAutoRotate = () => {
         const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
         if (!isTouchDevice) return;
 
         const isLandscape = window.innerWidth > window.innerHeight;
-        if (isLandscape && !art.fullscreen) {
-          art.fullscreen = true;
-        } else if (!isLandscape && art.fullscreen) {
-          art.fullscreen = false;
+        if (isLandscape !== lastWasLandscape) {
+          lastWasLandscape = isLandscape;
+
+          if (isLandscape) {
+            // Điện thoại đã được xoay ngang vật lý
+            disableSimulatedLandscape();
+            if (!isCurrentlyFullscreen()) {
+              enterLandscapeFullscreen();
+            }
+          } else {
+            // Điện thoại được dựng dọc trở lại
+            if (!isManualFullscreen) {
+              // Nếu trước đó vào toàn màn hình do cảm biến xoay, thì tự thoát khi dựng dọc
+              exitLandscapeFullscreen();
+            } else {
+              // Nếu người dùng chủ động bấm "Mở to", chuyển sang xoay ngang giả lập CSS để giữ trải nghiệm rộng
+              enableSimulatedLandscape();
+            }
+          }
+          art.emit('resize');
         }
       };
 
       window.addEventListener('resize', handleAutoRotate);
       window.addEventListener('orientationchange', handleAutoRotate);
+
+      // Phím tắt bàn phím Desktop: F để phóng to / thu nhỏ
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'f' || e.key === 'F') {
+          if (!['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+            e.preventDefault();
+            toggleLandscapeFullscreen();
+          }
+        }
+      };
+      window.addEventListener('keydown', onKeyDown);
 
       art.on('video:play', () => {
         showToolbar(true);
@@ -766,8 +1011,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         bottomEl?.removeEventListener('mouseleave', onBottomMouseLeave);
         bottomEl?.removeEventListener('touchstart', onBottomTouchStart);
         bottomEl?.removeEventListener('touchend', onBottomTouchEnd);
+        document.removeEventListener('fullscreenchange', onNativeFullscreenChange);
+        document.removeEventListener('webkitfullscreenchange', onNativeFullscreenChange);
         window.removeEventListener('resize', handleAutoRotate);
         window.removeEventListener('orientationchange', handleAutoRotate);
+        window.removeEventListener('keydown', onKeyDown);
         if (touchSingleTapTimer) clearTimeout(touchSingleTapTimer);
         if (desktopSingleClickTimer) clearTimeout(desktopSingleClickTimer);
         if (hideControlsTimer) clearTimeout(hideControlsTimer);
@@ -776,15 +1024,15 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         rightOverlay.remove();
         centerOverlay.remove();
         speed2xOverlay.remove();
+        disableSimulatedLandscape();
+        unlockOrientation().catch(() => {});
         triggerGestureDomRef.current = null;
       });
     });
 
-    // Đồng bộ trạng thái hiển thị thanh công cụ giữa Artplayer và React
-    setControlsVisible(true);
+    // Đồng bộ trạng thái hiển thị thanh công cụ
     art.on('control', (state) => {
       const isShow = Boolean(state);
-      setControlsVisible(isShow);
       if (art.template?.$player) {
         if (isShow) {
           art.template.$player.classList.remove('art-controls-hidden');
@@ -828,30 +1076,14 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
   }, [url]);
 
   return (
-    <div className={`relative w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black group ${className}`}>
+    <div
+      className={
+        isSimulatedLandscapeState
+          ? 'fixed inset-0 z-[999999] bg-black w-screen h-screen overflow-hidden'
+          : `relative w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black group ${className}`
+      }
+    >
       <div ref={artRef} className="w-full h-full select-none" />
-
-      {/* Video Title and Episode Overlay (Bottom Left above progress bar) */}
-      {(title || episodeName) && (
-        <div
-          className={`absolute bottom-[66px] sm:bottom-[74px] left-3.5 sm:left-5 z-20 pointer-events-none transition-all duration-300 ${
-            controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-          }`}
-        >
-          {episodeName && (
-            <div className="mb-1">
-              <span className="bg-red-600 text-white font-black text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-lg uppercase tracking-wider inline-block">
-                {cleanEpisodeBadge(episodeName)}
-              </span>
-            </div>
-          )}
-          {title && (
-            <h2 className="text-base sm:text-xl lg:text-2xl font-black text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] max-w-xl truncate">
-              {title}
-            </h2>
-          )}
-        </div>
-      )}
     </div>
   );
 });

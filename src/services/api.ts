@@ -1,6 +1,8 @@
 import type { MovieDetailResponse, MovieListResponse, MovieItem } from '../types/movie';
 
-const API_BASE = '/api/phim';
+const API_BASE = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.protocol === 'capacitor:'))
+  ? 'https://phimapi.com'
+  : (import.meta.env.DEV ? '/api/phim' : 'https://phimapi.com');
 const CDN_IMAGE_BASE = 'https://phimimg.com';
 
 export function getImageUrl(path: string | undefined): string {

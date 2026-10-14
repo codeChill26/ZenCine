@@ -77,6 +77,16 @@ button, a {
   }
 }
 
+/* Smart TV & Remote D-Pad Focus Styles */
+:focus-visible {
+  outline: 3px solid #e50914 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 22px rgba(229, 9, 20, 0.85) !important;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), outline-color 0.15s ease !important;
+  transform: scale(1.03);
+  z-index: 40 !important;
+}
+
 
 /* ==========================================================
    ARTPLAYER CUSTOM STYLING (Matching Reference Image Exact)
@@ -485,4 +495,105 @@ button, a {
   0%, 100% { opacity: 1; transform: translateX(0); }
   50% { opacity: 0.4; transform: translateX(3px); }
 }
+
+/* ==========================================================
+   MOBILE AUTO-ROTATE & SIMULATED LANDSCAPE FULLSCREEN
+   ========================================================== */
+.art-video-player.art-simulated-landscape {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vh !important;
+  width: 100dvh !important;
+  height: 100vw !important;
+  height: 100dvw !important;
+  max-width: none !important;
+  max-height: none !important;
+  transform: rotate(90deg) translateY(-100%) !important;
+  transform-origin: top left !important;
+  z-index: 999999 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+body.zen-simulated-landscape-active {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+/* Custom Fullscreen Control Button */
+.art-custom-fs-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  color: #ffffff !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+  transition: transform 0.2s ease, color 0.2s ease, background-color 0.2s ease !important;
+  margin-left: 2px !important;
+}
+
+.art-custom-fs-btn:hover {
+  transform: scale(1.12) !important;
+  color: #e50914 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.art-custom-fs-btn:active {
+  transform: scale(0.92) !important;
+}
+
+/* Video Title & Episode Badge Layer inside Artplayer */
+.art-title-layer {
+  pointer-events: none !important;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  user-select: none !important;
+}
+
+.art-video-player.art-controls-hidden .art-title-layer {
+  opacity: 0 !important;
+  transform: translateY(14px) !important;
+}
+
+.art-title-badge-wrap {
+  margin-bottom: 4px !important;
+}
+
+.art-title-badge {
+  background: #e50914 !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  font-size: 11px !important;
+  padding: 2.5px 8px !important;
+  border-radius: 4px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  display: inline-block !important;
+}
+
+.art-title-text {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95) !important;
+  max-width: 85vw !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  margin: 0 !important;
+}
+
+@media (min-width: 640px) {
+  .art-title-text {
+    font-size: 20px !important;
+    max-width: 580px !important;
+  }
+}
+
 

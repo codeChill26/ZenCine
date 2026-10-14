@@ -47,8 +47,35 @@ export function App() {
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+
+    const handleTvKeyDown = (e: KeyboardEvent) => {
+      // 461: webOS VK_BACK, 10009: Tizen VK_RETURN/BACK, Escape: 27
+      if (e.keyCode === 461 || e.keyCode === 10009 || e.key === 'Escape') {
+        if (searchOpen) {
+          e.preventDefault();
+          setSearchOpen(false);
+          return;
+        }
+        const currentHash = window.location.hash || '#/home';
+        if (currentHash !== '#/home' && currentHash !== '#home' && currentHash !== '') {
+          e.preventDefault();
+          const prev = sessionStorage.getItem('zen_prev_route');
+          if (prev && prev !== currentHash) {
+            window.location.hash = prev;
+          } else {
+            window.location.hash = '#/home';
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleTvKeyDown);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('keydown', handleTvKeyDown);
+    };
+  }, [searchOpen]);
 
   const navigateTo = (newRoute: string) => {
     window.location.hash = `/${newRoute}`;
