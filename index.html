@@ -32,10 +32,10 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Register Service Worker for PWA
-      if ('serviceWorker' in navigator) {
+      // Register Service Worker for PWA (Only on HTTPS or localhost, never on file:// in webOS)
+      if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then((reg) => {
+          navigator.serviceWorker.register('./sw.js').then((reg) => {
             console.log('ZenCine PWA ServiceWorker registered:', reg.scope);
           }).catch((err) => {
             console.warn('PWA registration failed:', err);

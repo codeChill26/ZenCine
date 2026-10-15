@@ -5,7 +5,7 @@ import { Shield, Zap, Sparkles, Heart } from 'lucide-react';
 export const Footer: React.FC = () => {
   return (
     <footer className="mt-20 border-t border-white/10 bg-[#08090c] py-12 text-slate-400">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
 
           <div className="space-y-4 md:col-span-1">

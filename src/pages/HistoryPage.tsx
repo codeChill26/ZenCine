@@ -21,7 +21,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ onSelectMovie }) => {
   }, []);
 
   return (
-    <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="min-h-screen pt-28 pb-20 w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16 space-y-8">
       
       {/* Header */}
       <div className="flex items-center justify-between pb-6 border-b border-white/10">
@@ -54,8 +54,20 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ onSelectMovie }) => {
             return (
               <div
                 key={item.slug}
+                tabIndex={0}
+                role="button"
+                aria-label={`Xem tiếp ${item.name}`}
                 onClick={() => onSelectMovie(item.slug)}
-                className="group relative glass-panel rounded-2xl overflow-hidden cursor-pointer hover:border-red-500/40 hover:-translate-y-1 transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.keyCode === 13 || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectMovie(item.slug);
+                  }
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }}
+                className="group relative glass-panel rounded-2xl overflow-hidden cursor-pointer hover:border-red-500/40 hover:-translate-y-1 focus:outline-none focus-visible:ring-4 focus-visible:ring-red-500/80 focus-visible:scale-105 transition-all"
               >
                 {/* Thumbnail */}
                 <div className="relative aspect-video w-full bg-slate-900 overflow-hidden">

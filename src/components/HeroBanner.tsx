@@ -117,8 +117,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       </div>
 
       {/* Content Container (Exact match with Image 1) */}
-      <div className="relative h-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-14 flex flex-col justify-center">
-        <div className="max-w-2xl space-y-4">
+      <div className="relative h-full w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-6 sm:px-10 lg:px-16 xl:px-20 flex flex-col justify-center">
+        <div className="max-w-2xl lg:max-w-3xl 2xl:max-w-4xl space-y-4">
           
           {/* Main Title */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight drop-shadow-md">

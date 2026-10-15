@@ -35,6 +35,14 @@ export function App() {
     return parseRoute(window.location.hash);
   });
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchInitialKeyword, setSearchInitialKeyword] = useState('');
+  const [searchInitialScope, setSearchInitialScope] = useState<'all' | 'actor' | 'director' | 'movie'>('all');
+
+  const handleOpenSearch = (keyword = '', scope: 'all' | 'actor' | 'director' | 'movie' = 'all') => {
+    setSearchInitialKeyword(keyword);
+    setSearchInitialScope(scope);
+    setSearchOpen(true);
+  };
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -48,32 +56,51 @@ export function App() {
 
     window.addEventListener('hashchange', handleHashChange);
 
-    const handleTvKeyDown = (e: KeyboardEvent) => {
-      // 461: webOS VK_BACK, 10009: Tizen VK_RETURN/BACK, Escape: 27
-      if (e.keyCode === 461 || e.keyCode === 10009 || e.key === 'Escape') {
-        if (searchOpen) {
-          e.preventDefault();
-          setSearchOpen(false);
-          return;
-        }
-        const currentHash = window.location.hash || '#/home';
-        if (currentHash !== '#/home' && currentHash !== '#home' && currentHash !== '') {
-          e.preventDefault();
-          const prev = sessionStorage.getItem('zen_prev_route');
-          if (prev && prev !== currentHash) {
-            window.location.hash = prev;
-          } else {
-            window.location.hash = '#/home';
-          }
+    const handleGoBack = (e?: Event) => {
+      if (searchOpen) {
+        e?.preventDefault?.();
+        setSearchOpen(false);
+        return;
+      }
+      const currentHash = window.location.hash || '#/home';
+      if (currentHash !== '#/home' && currentHash !== '#home' && currentHash !== '') {
+        e?.preventDefault?.();
+        const prev = sessionStorage.getItem('zen_prev_route');
+        if (prev && prev !== currentHash) {
+          window.location.hash = prev;
+        } else {
+          window.location.hash = '#/home';
         }
       }
     };
 
+    const handleTvKeyDown = (e: KeyboardEvent) => {
+      // 4: Android TV Back, 461: webOS VK_BACK, 10009: Tizen VK_RETURN/BACK, 27: Escape
+      const isBackKey =
+        e.keyCode === 4 ||
+        e.keyCode === 461 ||
+        e.keyCode === 10009 ||
+        e.keyCode === 27 ||
+        e.key === 'Escape' ||
+        e.key === 'GoBack' ||
+        e.key === 'Back';
+
+      if (isBackKey) {
+        handleGoBack(e);
+      }
+    };
+
+    const handleCapacitorBack = (e: Event) => {
+      handleGoBack(e);
+    };
+
     window.addEventListener('keydown', handleTvKeyDown);
+    document.addEventListener('backbutton', handleCapacitorBack as any);
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('keydown', handleTvKeyDown);
+      document.removeEventListener('backbutton', handleCapacitorBack as any);
     };
   }, [searchOpen]);
 
@@ -100,6 +127,7 @@ export function App() {
         movieSlug={movieSlug}
         onSelectMovie={handleSelectMovie}
         onNavigate={navigateTo}
+        onOpenSearch={handleOpenSearch}
       />
     );
   } else if (path.startsWith('type:')) {
@@ -150,7 +178,7 @@ export function App() {
       <Navbar
         currentRoute={path}
         onNavigate={navigateTo}
-        onOpenSearch={() => setSearchOpen(true)}
+        onOpenSearch={() => handleOpenSearch('', 'all')}
       />
 
       {!isWatchPage && <PWAInstallBanner />}
@@ -166,7 +194,7 @@ export function App() {
         <MobileBottomNav
           currentRoute={path}
           onNavigate={navigateTo}
-          onOpenSearch={() => setSearchOpen(true)}
+          onOpenSearch={() => handleOpenSearch('', 'all')}
         />
       )}
 
@@ -174,6 +202,8 @@ export function App() {
         isOpen={searchOpen}
         onClose={() => setSearchOpen(false)}
         onSelectMovie={handleSelectMovie}
+        initialKeyword={searchInitialKeyword}
+        initialScope={searchInitialScope}
       />
     </div>
   );

@@ -22,7 +22,7 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({ onSelectMovie }) =
   }, []);
 
   return (
-    <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="min-h-screen pt-28 pb-20 w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16 space-y-8">
       
       {/* Header */}
       <div className="flex items-center gap-3 pb-6 border-b border-white/10">

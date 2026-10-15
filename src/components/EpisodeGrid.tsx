@@ -88,19 +88,20 @@ export const EpisodeGrid: React.FC<EpisodeGridProps> = ({
         {displayedEpisodes.map((ep) => {
           const isActive = ep.slug === activeEpisodeSlug && selectedServer === activeServerIndex;
           return (
-            <button
-              key={ep.slug}
-              onClick={() => onSelectEpisode(selectedServer, ep)}
-              className={`flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                isActive
-                  ? 'bg-red-600 text-white ring-2 ring-red-400/50 shadow-lg shadow-red-600/30 scale-105'
-                  : 'bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white border border-white/5 hover:border-white/20'
-              }`}
-              title={ep.name}
-            >
-              {isActive && <Play className="w-3 h-3 fill-white" />}
-              <span className="truncate">{ep.name}</span>
-            </button>
+              <button
+                key={ep.slug}
+                onClick={() => onSelectEpisode(selectedServer, ep)}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+                className={`flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:scale-110 focus-visible:shadow-lg focus-visible:shadow-red-600/50 cursor-pointer ${
+                  isActive
+                    ? 'bg-red-600 text-white ring-2 ring-red-400/50 shadow-lg shadow-red-600/30 scale-105'
+                    : 'bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white border border-white/5 hover:border-white/20'
+                }`}
+                title={ep.name}
+              >
+                {isActive && <Play className="w-3 h-3 fill-white" />}
+                <span className="truncate">{ep.name}</span>
+              </button>
           );
         })}
       </div>

@@ -67,7 +67,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectMovie, onNavigate })
 
       {/* Continue Watching Row (if user has history) */}
       {history.length > 0 && (
-        <section className="my-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="my-10 w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-red-500" />
@@ -81,12 +81,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectMovie, onNavigate })
             </button>
           </div>
 
-          <div className="flex items-stretch gap-4 overflow-x-auto no-scrollbar py-2">
+          <div className="flex items-stretch gap-4 sm:gap-5 overflow-x-auto no-scrollbar py-2">
             {history.slice(0, 6).map((item) => (
               <div
                 key={item.slug}
+                tabIndex={0}
+                role="button"
+                aria-label={`Tiếp tục xem ${item.name}`}
                 onClick={() => onSelectMovie(item.slug)}
-                className="w-[220px] sm:w-[260px] flex-shrink-0 glass-panel rounded-2xl overflow-hidden cursor-pointer group hover:border-red-500/50 transition-all hover:-translate-y-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.keyCode === 13 || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectMovie(item.slug);
+                  }
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }}
+                className="w-[220px] sm:w-[260px] lg:w-[290px] xl:w-[320px] flex-shrink-0 glass-panel rounded-2xl overflow-hidden cursor-pointer group hover:border-red-500/50 transition-all hover:-translate-y-1 focus:outline-none focus-visible:ring-4 focus-visible:ring-red-500/80 focus-visible:scale-105"
               >
                 <div className="relative aspect-video w-full bg-slate-900 overflow-hidden">
                   <img

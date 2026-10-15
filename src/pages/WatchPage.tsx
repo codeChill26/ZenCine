@@ -10,6 +10,8 @@ import {
   Share2,
   Check,
   Maximize2,
+  User,
+  Clapperboard,
 } from 'lucide-react';
 import { getMovieDetail, getMoviesByType, getImageUrl, getMovieRating } from '../services/api';
 import type { MovieDetail, EpisodeServer, EpisodeData, MovieItem } from '../types/movie';
@@ -25,6 +27,7 @@ interface WatchPageProps {
   initialEpisodeSlug?: string;
   onSelectMovie: (slug: string) => void;
   onNavigate?: (route: string) => void;
+  onOpenSearch?: (keyword: string, scope: 'actor' | 'director') => void;
 }
 
 function cleanEpisodeText(name?: string): string {
@@ -42,6 +45,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   initialEpisodeSlug,
   onSelectMovie,
   onNavigate,
+  onOpenSearch,
 }) => {
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeServer[]>([]);
@@ -220,7 +224,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
       </div>
 
       {/* Video Player Section */}
-      <div ref={playerContainerRef} className="max-w-[1500px] mx-auto sm:px-4 lg:px-8 sm:pt-4 pb-4">
+      <div ref={playerContainerRef} className="w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16 sm:pt-4 pb-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           
           {/* Main Video Player & Mobile Episodes */}
@@ -485,20 +489,42 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           )}
 
           {movie.actor && movie.actor.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <span className="text-slate-400 text-xs font-medium">Diễn viên</span>
-              <p className="text-slate-300 leading-relaxed font-normal">
-                {movie.actor.join(', ')}
-              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {movie.actor.map((act) => (
+                  <button
+                    key={act}
+                    type="button"
+                    onClick={() => onOpenSearch?.(act, 'actor')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-red-600/20 hover:text-red-400 border border-white/10 hover:border-red-500/30 text-xs text-slate-300 font-medium transition-colors cursor-pointer"
+                    title={`Tìm tất cả phim của diễn viên ${act}`}
+                  >
+                    <User className="w-3 h-3 text-red-400" />
+                    <span>{act}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
           {movie.director && movie.director.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <span className="text-slate-400 text-xs font-medium">Đạo diễn</span>
-              <p className="text-slate-300 leading-relaxed font-normal">
-                {movie.director.join(', ')}
-              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {movie.director.map((dir) => (
+                  <button
+                    key={dir}
+                    type="button"
+                    onClick={() => onOpenSearch?.(dir, 'director')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 text-xs text-slate-300 font-medium transition-colors cursor-pointer"
+                    title={`Tìm tất cả phim do đạo diễn ${dir} thực hiện`}
+                  >
+                    <Clapperboard className="w-3 h-3 text-amber-400" />
+                    <span>{dir}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -37,7 +37,7 @@ export const MovieRow: React.FC<MovieRowProps> = ({
 
   return (
     <section className="my-10 relative">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16">
         <div className="flex items-end justify-between mb-4">
           {/* Section Title with link capability */}
           <div
@@ -93,10 +93,10 @@ export const MovieRow: React.FC<MovieRowProps> = ({
 
         <div
           ref={rowRef}
-          className="flex items-stretch gap-4 overflow-x-auto no-scrollbar scroll-smooth py-2"
+          className="flex items-stretch gap-4 sm:gap-5 lg:gap-6 2xl:gap-7 overflow-x-auto no-scrollbar scroll-smooth py-3 px-1"
         >
           {movies.map((movie) => (
-            <div key={movie.slug} className="w-[160px] sm:w-[190px] md:w-[210px] flex-shrink-0">
+            <div key={movie.slug} className="w-[165px] sm:w-[200px] md:w-[235px] lg:w-[265px] xl:w-[285px] 2xl:w-[310px] flex-shrink-0">
               <MovieCard movie={movie} onSelect={onSelectMovie} />
             </div>
           ))}

@@ -7,6 +7,31 @@
   }
 }
 
+/* Responsive TV Scaling across 32" (720p), 43"-55" (1080p), and 65"-85"+ (4K UHD) */
+@media screen and (min-width: 1440px) {
+  html {
+    font-size: 16.5px;
+  }
+}
+
+@media screen and (min-width: 1920px) {
+  html {
+    font-size: 17.5px;
+  }
+}
+
+@media screen and (min-width: 2560px) {
+  html {
+    font-size: 19.5px;
+  }
+}
+
+@media screen and (min-width: 3840px) {
+  html {
+    font-size: 22px;
+  }
+}
+
 /* Custom Cinema Glow & Glass */
 .glass-panel {
   background: rgba(18, 22, 34, 0.75);
@@ -77,14 +102,24 @@ button, a {
   }
 }
 
-/* Smart TV & Remote D-Pad Focus Styles */
+/* Smart TV & Remote D-Pad Focus Styles (Supports webOS 4.x - 24) */
+:focus,
 :focus-visible {
   outline: 3px solid #e50914 !important;
   outline-offset: 3px !important;
-  box-shadow: 0 0 22px rgba(229, 9, 20, 0.85) !important;
+  box-shadow: 0 0 25px rgba(229, 9, 20, 0.9) !important;
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), outline-color 0.15s ease !important;
-  transform: scale(1.03);
+  transform: scale(1.04);
   z-index: 40 !important;
+}
+
+/* Remove outline for mouse/touch clicks on fine pointer devices */
+@media (hover: hover) and (pointer: fine) {
+  :focus:not(:focus-visible) {
+    outline: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
 }
 
 

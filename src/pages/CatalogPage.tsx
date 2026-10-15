@@ -29,8 +29,10 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [movies, setMovies] = useState<MovieItem[]>([]);
   const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'default' | 'rating' | 'newest' | 'oldest'>('default');
+  const [jumpPageInput, setJumpPageInput] = useState('');
 
   // Sync internal page state if initialPage changes (from browser back/forward)
   useEffect(() => {
@@ -68,6 +70,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         setMovies(res.items || []);
         if (res.pagination) {
           setTotalPages(Math.max(1, res.pagination.totalPages || 10));
+          setTotalItems(res.pagination.totalItems || 0);
         }
       } catch (err) {
         console.error('Lỗi tải danh mục:', err);
@@ -139,8 +142,116 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const paginationItems = getPaginationItems(page, totalPages);
 
+  const handleJumpPage = (e: React.FormEvent) => {
+    e.preventDefault();
+    const target = parseInt(jumpPageInput, 10);
+    if (!isNaN(target) && target >= 1 && target <= totalPages) {
+      handlePageChange(target);
+      setJumpPageInput('');
+    }
+  };
+
+  const renderPagination = (isTop = false) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div
+        className={`flex items-center justify-between flex-wrap gap-3 ${
+          isTop
+            ? 'bg-[#10141e]/90 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 shadow-lg'
+            : 'pt-10 pb-4 justify-center sm:justify-between'
+        }`}
+      >
+        {/* Left: Current Page Info */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs sm:text-sm font-semibold text-slate-400">
+            Trang <span className="text-red-400 font-bold">{page}</span> / {totalPages.toLocaleString('vi-VN')}
+          </span>
+        </div>
+
+        {/* Center: Numeric Pages with Previous & Next */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center">
+          {/* Previous Page Button */}
+          <button
+            disabled={page <= 1}
+            onClick={() => handlePageChange(Math.max(1, page - 1))}
+            className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-xl glass-panel text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            title="Trang trước"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Trước</span>
+          </button>
+
+          {/* Page Numbers: 1, 2, 3, 4, 5 ... totalPages */}
+          {paginationItems.map((item, index) => {
+            if (item === '...') {
+              return (
+                <span
+                  key={`ellipsis-${isTop ? 'top' : 'bot'}-${index}`}
+                  className="px-1.5 sm:px-2 py-1 text-xs font-bold text-slate-500 select-none"
+                >
+                  ...
+                </span>
+              );
+            }
+
+            const pageNum = item as number;
+            const isActive = pageNum === page;
+
+            return (
+              <button
+                key={`page-${isTop ? 'top' : 'bot'}-${pageNum}`}
+                onClick={() => handlePageChange(pageNum)}
+                className={`min-w-[34px] sm:min-w-[38px] h-8 sm:h-9 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${
+                  isActive
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105 ring-1 ring-red-400 font-extrabold'
+                    : 'glass-panel text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+                title={`Chuyển đến trang ${pageNum}`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          {/* Next Page Button */}
+          <button
+            disabled={page >= totalPages}
+            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+            className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-xl glass-panel text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            title="Trang sau"
+          >
+            <span className="hidden sm:inline">Sau</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Right: Quick Jump Form */}
+        <form onSubmit={handleJumpPage} className="flex items-center gap-1.5 text-xs">
+          <span className="text-slate-400 hidden lg:inline">Nhảy đến:</span>
+          <input
+            type="number"
+            min={1}
+            max={totalPages}
+            value={jumpPageInput}
+            onChange={(e) => setJumpPageInput(e.target.value)}
+            placeholder={`1-${totalPages}`}
+            className="w-16 sm:w-20 px-2.5 py-1.5 rounded-xl bg-[#141824] border border-white/15 text-white text-xs font-semibold text-center focus:border-red-500 focus:outline-none placeholder:text-slate-500"
+            title={`Nhập số trang từ 1 đến ${totalPages}`}
+          />
+          <button
+            type="submit"
+            className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer transition-colors shadow-sm shadow-red-600/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          >
+            Đi
+          </button>
+        </form>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen pt-28 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-screen pt-28 pb-20 w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16 space-y-6">
       {/* Top Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-4 pb-5 border-b border-white/10">
         <div className="space-y-1">
@@ -175,8 +286,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
             )}
           </div>
 
-          <p className="text-xs text-slate-400">
-            Hiển thị {sortedMovies.length} bộ phim • Trang {page} / {totalPages}
+          <p className="text-xs sm:text-sm text-slate-400">
+            Tổng cộng <span className="text-red-400 font-bold">{totalItems > 0 ? totalItems.toLocaleString('vi-VN') : sortedMovies.length}</span> bộ phim • Trang <span className="text-white font-semibold">{page}</span> / {totalPages}
           </p>
         </div>
 
@@ -346,13 +457,16 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         )}
       </div>
 
+      {/* Top Pagination Controls */}
+      {renderPagination(true)}
+
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center text-slate-400 gap-3">
           <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm font-semibold">Đang nạp danh sách phim...</p>
         </div>
       ) : sortedMovies.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4 sm:gap-5 lg:gap-6">
           {sortedMovies.map((m) => (
             <MovieCard key={m.slug} movie={m} onSelect={onSelectMovie} />
           ))}
@@ -364,63 +478,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
         </div>
       )}
 
-      {/* Smart Numeric Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2 pt-10 flex-wrap">
-          {/* Previous Page */}
-          <button
-            disabled={page <= 1}
-            onClick={() => handlePageChange(Math.max(1, page - 1))}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl glass-panel text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer mr-1"
-            title="Trang trước"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Trước</span>
-          </button>
-
-          {/* Page Numbers: 1, 2, 3 ... N */}
-          {paginationItems.map((item, index) => {
-            if (item === '...') {
-              return (
-                <span
-                  key={`ellipsis-${index}`}
-                  className="px-2 py-2 text-xs font-bold text-slate-500 select-none"
-                >
-                  ...
-                </span>
-              );
-            }
-
-            const pageNum = item as number;
-            const isActive = pageNum === page;
-
-            return (
-              <button
-                key={`page-${pageNum}`}
-                onClick={() => handlePageChange(pageNum)}
-                className={`min-w-[36px] h-9 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                  isActive
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105'
-                    : 'glass-panel text-slate-300 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
-
-          {/* Next Page */}
-          <button
-            disabled={page >= totalPages}
-            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl glass-panel text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-xs font-semibold transition-all cursor-pointer ml-1"
-            title="Trang sau"
-          >
-            <span className="hidden sm:inline">Sau</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Bottom Pagination Controls */}
+      {renderPagination(false)}
     </div>
   );
 };

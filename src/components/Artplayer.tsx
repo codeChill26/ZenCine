@@ -970,12 +970,76 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       window.addEventListener('resize', handleAutoRotate);
       window.addEventListener('orientationchange', handleAutoRotate);
 
-      // Phím tắt bàn phím Desktop: F để phóng to / thu nhỏ
+      // Phím tắt bàn phím & Remote TV: F, D-Pad Left/Right, Up/Down, OK/Space, Media Keys
       const onKeyDown = (e: KeyboardEvent) => {
+        if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+
+        // F: Phóng to / Thu nhỏ
         if (e.key === 'f' || e.key === 'F') {
-          if (!['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+          e.preventDefault();
+          toggleLandscapeFullscreen();
+          return;
+        }
+
+        // Space hoặc Enter: Tạm dừng / Tiếp tục
+        if (e.key === ' ' || e.key === 'Enter' || e.keyCode === 32 || e.keyCode === 13 || e.key === 'MediaPlayPause') {
+          e.preventDefault();
+          togglePlayPause();
+          showToolbar(true);
+          return;
+        }
+
+        // Mũi tên Trái / Tua lùi (10s)
+        if (e.key === 'ArrowLeft' || e.keyCode === 37 || e.key === 'MediaRewind') {
+          e.preventDefault();
+          const cur = art.video.currentTime || 0;
+          const target = Math.max(0, cur - 10);
+          art.seek = target;
+          art.notice.show = '⏪ Lùi 10s';
+          triggerGestureFeedback('left');
+          showToolbar(true);
+          return;
+        }
+
+        // Mũi tên Phải / Tua tới (10s)
+        if (e.key === 'ArrowRight' || e.keyCode === 39 || e.key === 'MediaFastForward') {
+          e.preventDefault();
+          const cur = art.video.currentTime || 0;
+          const dur = art.video.duration || 999999;
+          const target = Math.min(dur, cur + 10);
+          art.seek = target;
+          art.notice.show = '⏩ Tua 10s';
+          triggerGestureFeedback('right');
+          showToolbar(true);
+          return;
+        }
+
+        // Mũi tên Lên: Tăng âm lượng
+        if (e.key === 'ArrowUp' || e.keyCode === 38) {
+          e.preventDefault();
+          const newVol = Math.min(1, Number((art.volume + 0.1).toFixed(2)));
+          art.volume = newVol;
+          art.notice.show = `🔊 Âm lượng: ${Math.round(newVol * 100)}%`;
+          showToolbar(true);
+          return;
+        }
+
+        // Mũi tên Xuống: Giảm âm lượng
+        if (e.key === 'ArrowDown' || e.keyCode === 40) {
+          e.preventDefault();
+          const newVol = Math.max(0, Number((art.volume - 0.1).toFixed(2)));
+          art.volume = newVol;
+          art.notice.show = `🔉 Âm lượng: ${Math.round(newVol * 100)}%`;
+          showToolbar(true);
+          return;
+        }
+
+        // Nút Back / Escape khi đang toàn màn hình: Thoát toàn màn hình trước
+        if (e.key === 'Escape' || e.keyCode === 27 || e.keyCode === 4 || e.keyCode === 461 || e.keyCode === 10009) {
+          if (isCurrentlyFullscreen() || isSimulatedLandscape) {
             e.preventDefault();
-            toggleLandscapeFullscreen();
+            e.stopPropagation();
+            exitLandscapeFullscreen();
           }
         }
       };

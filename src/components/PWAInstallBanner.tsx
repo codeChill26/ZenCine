@@ -9,11 +9,14 @@ export const PWAInstallBanner: React.FC = () => {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already in standalone PWA mode
+    // Check if already in standalone PWA mode, Capacitor Native App, or TV
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true;
-    if (isStandalone) {
+    const isCapacitorNative = Boolean((window as any).Capacitor?.isNativePlatform?.());
+    const isTV = /smart-tv|googletv|appletv|hbbtv|pov_tv|netcast.tv|webos|viera|tizen|android\s*tv/i.test(navigator.userAgent);
+
+    if (isStandalone || isCapacitorNative || isTV) {
       setIsInstalled(true);
       return;
     }

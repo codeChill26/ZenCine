@@ -96,22 +96,26 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
             : 'bg-gradient-to-b from-[#0b0c10]/95 via-[#0b0c10]/70 to-transparent py-5'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-[1920px] 2xl:max-w-[2200px] mx-auto px-4 sm:px-8 lg:px-14 xl:px-16">
         <div className="flex items-center justify-between">
           
-          <div onClick={() => onNavigate('home')}>
+          <button
+            onClick={() => onNavigate('home')}
+            className="focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded-xl cursor-pointer p-0.5 text-left"
+            aria-label="Về trang chủ ZenCine"
+          >
             <Logo size="md" />
-          </div>
+          </button>
 
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+          <nav className="hidden md:flex items-center gap-1.5 lg:gap-2.5">
             {navLinks.map((item) => (
               <button
                 key={item.route}
                 onClick={() => onNavigate(item.route)}
-                className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                className={`px-4 py-2.5 rounded-xl text-sm lg:text-base font-bold transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${
                   currentRoute === item.route
-                    ? 'text-white bg-white/10 shadow-inner'
-                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                    ? 'text-white bg-red-600/30 border border-red-500/40 shadow-lg shadow-red-600/20'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {item.label}
@@ -129,10 +133,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
                   setGenreDropdown(!genreDropdown);
                   setCountryDropdown(false);
                 }}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm lg:text-base font-bold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${
                   genreDropdown || currentRoute.startsWith('category:')
-                    ? 'text-white bg-white/10 shadow-inner'
-                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                    ? 'text-white bg-red-600/30 border border-red-500/40 shadow-lg shadow-red-600/20'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
                 <span>Thể Loại</span>
@@ -209,42 +213,45 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, onNavigate, onOpen
             </div>
           </nav>
 
-          {/* Desktop Right Actions */}
-          <div className="hidden md:flex items-center gap-2">
+          {/* Desktop/TV Right Actions */}
+          <div className="hidden md:flex items-center gap-2.5">
             <button
               onClick={onOpenSearch}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all duration-200 group cursor-pointer"
+              className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all duration-200 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               title="Tìm kiếm phim (Ctrl+K)"
+              aria-label="Tìm kiếm phim"
             >
               <Search className="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" />
-              <span className="text-xs font-medium text-slate-400">Tìm kiếm...</span>
-              <kbd className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400 border border-white/10 font-mono">
+              <span className="text-sm font-medium text-slate-300">Tìm kiếm...</span>
+              <kbd className="text-[11px] bg-white/10 px-2 py-0.5 rounded text-slate-400 border border-white/10 font-mono">
                 Ctrl+K
               </kbd>
             </button>
 
             <button
               onClick={() => onNavigate('history')}
-              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${
                 currentRoute === 'history'
                   ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
               }`}
               title="Lịch sử xem phim"
+              aria-label="Lịch sử xem phim"
             >
-              <History className="w-4 h-4" />
+              <History className="w-5 h-5" />
             </button>
 
             <button
               onClick={() => onNavigate('favorites')}
-              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${
                 currentRoute === 'favorites'
                   ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/20'
                   : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
               }`}
               title="Phim đã lưu"
+              aria-label="Phim đã lưu"
             >
-              <Heart className="w-4 h-4" />
+              <Heart className="w-5 h-5" />
             </button>
           </div>
 
