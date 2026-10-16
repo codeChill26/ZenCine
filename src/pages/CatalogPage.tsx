@@ -36,7 +36,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   // Sync internal page state if initialPage changes (from browser back/forward)
   useEffect(() => {
-    if (initialPage && initialPage !== page) {
+    if (initialPage) {
       setPage(initialPage);
     }
   }, [initialPage]);

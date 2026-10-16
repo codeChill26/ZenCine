@@ -46,9 +46,9 @@ export const EpisodeGrid: React.FC<EpisodeGridProps> = ({
                 setSelectedServer(idx);
                 setActiveChunk(0);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:scale-105 cursor-pointer ${
                 selectedServer === idx
-                  ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                  ? 'bg-red-600 text-white shadow-md shadow-red-600/30 ring-2 ring-red-400/50'
                   : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5'
               }`}
             >
@@ -71,7 +71,7 @@ export const EpisodeGrid: React.FC<EpisodeGridProps> = ({
               <button
                 key={cIdx}
                 onClick={() => setActiveChunk(cIdx)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:scale-105 cursor-pointer ${
                   activeChunk === cIdx
                     ? 'bg-white/20 text-white font-bold border border-white/20'
                     : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
@@ -88,17 +88,17 @@ export const EpisodeGrid: React.FC<EpisodeGridProps> = ({
         {displayedEpisodes.map((ep) => {
           const isActive = ep.slug === activeEpisodeSlug && selectedServer === activeServerIndex;
           return (
-              <button
-                key={ep.slug}
-                onClick={() => onSelectEpisode(selectedServer, ep)}
-                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-                className={`flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:scale-110 focus-visible:shadow-lg focus-visible:shadow-red-600/50 cursor-pointer ${
-                  isActive
-                    ? 'bg-red-600 text-white ring-2 ring-red-400/50 shadow-lg shadow-red-600/30 scale-105'
-                    : 'bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white border border-white/5 hover:border-white/20'
-                }`}
-                title={ep.name}
-              >
+            <button
+              key={ep.slug}
+              onClick={() => onSelectEpisode(selectedServer, ep)}
+              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+              className={`flex items-center justify-center gap-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:scale-110 focus:shadow-lg focus:shadow-red-600/50 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:scale-110 cursor-pointer ${
+                isActive
+                  ? 'bg-red-600 text-white ring-2 ring-red-400/50 shadow-lg shadow-red-600/30 scale-105'
+                  : 'bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white border border-white/5 hover:border-white/20'
+              }`}
+              title={ep.name}
+            >
                 {isActive && <Play className="w-3 h-3 fill-white" />}
                 <span className="truncate">{ep.name}</span>
               </button>

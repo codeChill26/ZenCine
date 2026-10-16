@@ -49,7 +49,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, onSelect, className
       }}
     >
       {/* Poster Image Container */}
-      <div className="relative aspect-[2/3] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 border border-white/5 group-hover:border-red-500/50 group-focus-visible:border-red-500 group-focus-visible:ring-4 group-focus-visible:ring-red-600/80 shadow-lg group-hover:shadow-red-600/30 group-focus-visible:shadow-2xl group-focus-visible:shadow-red-600/60 group-focus-visible:scale-105 transition-all">
+      <div className="relative aspect-[2/3] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 border border-white/5 group-hover:border-red-500/50 group-focus:border-red-500 group-focus:ring-4 group-focus:ring-red-600/80 group-focus:shadow-2xl group-focus:shadow-red-600/60 group-focus:scale-105 group-focus-visible:border-red-500 group-focus-visible:ring-4 group-focus-visible:ring-red-600/80 shadow-lg group-hover:shadow-red-600/30 group-focus-visible:shadow-2xl group-focus-visible:shadow-red-600/60 group-focus-visible:scale-105 transition-all">
         {!hasError ? (
           <img
             src={imgSrc}

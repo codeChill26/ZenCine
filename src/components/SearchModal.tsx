@@ -107,6 +107,18 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     onClose();
   };
 
+  const loadDefaultList = async () => {
+    setLoading(true);
+    try {
+      const data = await getMoviesByType('phim-le', 1);
+      setRawResults(data.items || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Mobile Back button handling: Pressing Back closes Search Modal
   useEffect(() => {
     if (isOpen) {
@@ -147,18 +159,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
-
-  const loadDefaultList = async () => {
-    setLoading(true);
-    try {
-      const data = await getMoviesByType('phim-le', 1);
-      setRawResults(data.items || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Debounced search supporting Actor, Director, Movie Title & Unified mode
   useEffect(() => {

@@ -9,6 +9,7 @@ import { WatchPage } from './pages/WatchPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { FavoritesPage } from './pages/FavoritesPage';
+import { initSpatialNavigation } from './utils/spatialNavigation';
 
 export interface ParsedRoute {
   raw: string;
@@ -57,11 +58,22 @@ export function App() {
     window.addEventListener('hashchange', handleHashChange);
 
     const handleGoBack = (e?: Event) => {
+      // 1. Nếu video đang mở toàn màn hình: Thoát toàn màn hình trước
+      const fsPlayer = document.querySelector('.art-video-player.art-fullscreen');
+      if (fsPlayer) {
+        e?.preventDefault?.();
+        window.dispatchEvent(new CustomEvent('tv-exit-fullscreen'));
+        return;
+      }
+
+      // 2. Nếu đang mở khung tìm kiếm: Đóng tìm kiếm
       if (searchOpen) {
         e?.preventDefault?.();
         setSearchOpen(false);
         return;
       }
+
+      // 3. Nếu đang ở trang xem phim hoặc danh mục (khác Trang chủ): Quay lại trang trước hoặc về Home
       const currentHash = window.location.hash || '#/home';
       if (currentHash !== '#/home' && currentHash !== '#home' && currentHash !== '') {
         e?.preventDefault?.();
@@ -71,8 +83,33 @@ export function App() {
         } else {
           window.location.hash = '#/home';
         }
+        return;
       }
+
+      // 4. Nếu đã ở Trang chủ: Cho phép đóng app bằng ZenNative bridge (Android TV) hoặc webOS platformBack (LG TV)
+      try {
+        if ((window as any).ZenNative?.exitApp) {
+          (window as any).ZenNative.exitApp();
+        } else if ((window as any).webOSSystem?.platformBack) {
+          (window as any).webOSSystem.platformBack();
+        } else if ((window as any).webOS?.platformBack) {
+          (window as any).webOS.platformBack();
+        } else if (typeof window.close === 'function') {
+          window.close();
+        }
+      } catch (_) {}
     };
+
+    // Gắn vào window để MainActivity.java gọi trực tiếp khi bấm nút BACK trên Remote Sony
+    (window as any).zenHandleTvBack = handleGoBack;
+
+    const isTV = /smart-tv|googletv|appletv|hbbtv|pov_tv|netcast.tv|webos|viera|tizen|android\s*tv/i.test(navigator.userAgent);
+    if (isTV) {
+      document.body.classList.add('tv-mode');
+    }
+
+    // Khởi tạo hệ thống điều hướng 2D D-Pad (Lên, Xuống, Trái, Phải, OK)
+    const cleanupSpatialNav = initSpatialNavigation();
 
     const handleTvKeyDown = (e: KeyboardEvent) => {
       // 4: Android TV Back, 461: webOS VK_BACK, 10009: Tizen VK_RETURN/BACK, 27: Escape
@@ -101,6 +138,8 @@ export function App() {
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('keydown', handleTvKeyDown);
       document.removeEventListener('backbutton', handleCapacitorBack as any);
+      cleanupSpatialNav();
+      delete (window as any).zenHandleTvBack;
     };
   }, [searchOpen]);
 

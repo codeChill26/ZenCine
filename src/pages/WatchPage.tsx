@@ -254,8 +254,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               )}
             </div>
 
-            {/* Quick Actions Bar under player (Desktop / Tablet) */}
-            <div className="hidden sm:flex items-center justify-between text-xs py-1 px-1 text-slate-400">
+            {/* Quick Actions Bar under player (Always visible on TV / Web) */}
+            <div className="flex flex-wrap items-center justify-between text-xs py-1.5 px-1 text-slate-400 gap-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white text-sm">
                   {movie.name} • <span className="text-red-500 font-semibold">{cleanEpisodeText(currentEpisode?.name)}</span>
@@ -264,6 +264,18 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  tabIndex={0}
+                  onClick={() => playerRef.current?.toggleFullscreen()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all bg-red-600 hover:bg-red-700 active:scale-95 text-white border-red-500 shadow-md shadow-red-600/30"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Toàn màn hình</span>
+                </button>
+
+                <button
+                  type="button"
+                  tabIndex={0}
                   onClick={() => setTheaterMode(!theaterMode)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                     theaterMode ? 'bg-amber-500 text-black border-amber-400 font-bold' : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'

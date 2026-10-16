@@ -170,7 +170,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             {/* Red Xem Ngay Button */}
             <button
               onClick={() => onSelectMovie(currentMovie.slug)}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-white focus:scale-105"
             >
               <Play className="w-4 h-4 fill-white" />
               <span>Xem ngay</span>
@@ -179,7 +179,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             {/* Dark Thông Tin Button */}
             <button
               onClick={() => onOpenInfo ? onOpenInfo(currentMovie) : onSelectMovie(currentMovie.slug)}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1e293b]/90 hover:bg-[#334155] border border-white/10 text-white font-semibold text-sm transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1e293b]/90 hover:bg-[#334155] border border-white/10 text-white font-semibold text-sm transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md focus:outline-none focus:ring-4 focus:ring-red-500 focus:scale-105"
             >
               <Info className="w-4 h-4 text-slate-300" />
               <span>Thông tin</span>

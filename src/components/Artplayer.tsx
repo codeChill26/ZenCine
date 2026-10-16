@@ -151,7 +151,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       fullscreenWeb: false,
       theme: '#e50914',
       lang: 'vi',
-      hotkey: true,
+      hotkey: false,
       airplay: true,
       lock: false,
       fastForward: false,
@@ -482,6 +482,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
 
       const isCurrentlyFullscreen = () => {
         return Boolean(
+          playerEl.classList.contains('art-fullscreen') ||
           document.fullscreenElement === playerEl ||
           (document as any).webkitFullscreenElement === playerEl ||
           isSimulatedLandscape
@@ -507,8 +508,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
 
         if (isFs) {
           playerEl.classList.add('art-fullscreen');
+          document.body.classList.add('zen-player-fullscreen-active');
         } else {
           playerEl.classList.remove('art-fullscreen');
+          document.body.classList.remove('zen-player-fullscreen-active');
         }
 
         art.emit('fullscreen', isFs);
@@ -538,24 +541,26 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         isManualFullscreen = true;
         const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
-        // 1. Kích hoạt khóa xoay ngang màn hình ngay trong chuỗi thao tác của người dùng
+        // 1. Áp dụng ngay giao diện toàn màn hình 100vw x 100vh
+        playerEl.classList.add('art-fullscreen');
+        document.body.classList.add('zen-player-fullscreen-active');
+        updateFullscreenIcons(true);
+
+        // 2. Kích hoạt khóa xoay ngang màn hình
         lockLandscape().catch(() => {});
 
-        // 2. Yêu cầu toàn màn hình phần tử trình phát
+        // 3. Yêu cầu toàn màn hình phần tử trình phát (nếu WebView hỗ trợ)
         try {
           if (playerEl.requestFullscreen) {
             await playerEl.requestFullscreen({ navigationUI: 'hide' });
           } else if ((playerEl as any).webkitRequestFullscreen) {
             await (playerEl as any).webkitRequestFullscreen();
           }
-        } catch (err) {
-          console.warn('Native requestFullscreen could not be invoked:', err);
-        }
+        } catch (_) {}
 
-        // Thử lại orientation lock sau khi fullscreen vừa mở
         lockLandscape().catch(() => {});
 
-        // 3. Với điện thoại: Nếu hệ thống không tự xoay ngang (iOS, máy bật khóa xoay dọc), bật xoay ngang giả lập CSS 90 độ
+        // 4. Với điện thoại: Nếu hệ thống không tự xoay ngang, bật xoay ngang giả lập CSS 90 độ
         if (isTouch) {
           setTimeout(() => {
             const isNowLandscape = window.innerWidth > window.innerHeight;
@@ -572,16 +577,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           art.emit('resize');
         }
 
-        art.notice.show = '⛶ Phóng to toàn màn hình';
-        triggerGestureFeedback(
-          'center',
-          'Phóng to',
-          `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>`
-        );
+        art.notice.show = '⛶ Toàn màn hình';
       };
 
       const exitLandscapeFullscreen = async () => {
         isManualFullscreen = false;
+        playerEl.classList.remove('art-fullscreen');
+        document.body.classList.remove('zen-player-fullscreen-active');
         disableSimulatedLandscape();
 
         try {
@@ -592,21 +594,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
               await (document as any).webkitExitFullscreen().catch(() => {});
             }
           }
-        } catch (err) {
-          console.warn('Exit fullscreen error:', err);
-        }
+        } catch (_) {}
 
         unlockOrientation().catch(() => {});
-
         updateFullscreenIcons(false);
         art.emit('resize');
-
         art.notice.show = '⛶ Thu nhỏ màn hình';
-        triggerGestureFeedback(
-          'center',
-          'Thu nhỏ',
-          `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" /></svg>`
-        );
       };
 
       const toggleLandscapeFullscreen = (target?: boolean) => {
@@ -723,6 +716,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           target.closest('.art-custom-progress-row') ||
           target.closest('.art-progress') ||
           target.closest('.art-control') ||
+          target.closest('.art-custom-fs-btn') ||
+          target.closest('.art-capsule-btn') ||
+          target.closest('.art-speed-pill-btn') ||
+          target.closest('.art-control-playAndPause') ||
+          target.closest('button') ||
+          target.closest('a') ||
           target.closest('.art-watermark-badge') ||
           target.closest('.art-setting') ||
           target.closest('.art-settings')
@@ -814,6 +813,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           target.closest('.art-custom-progress-row') ||
           target.closest('.art-progress') ||
           target.closest('.art-control') ||
+          target.closest('.art-custom-fs-btn') ||
+          target.closest('.art-capsule-btn') ||
+          target.closest('.art-speed-pill-btn') ||
+          target.closest('.art-control-playAndPause') ||
+          target.closest('button') ||
+          target.closest('a') ||
           target.closest('.art-watermark-badge') ||
           target.closest('.art-setting') ||
           target.closest('.art-settings')
@@ -970,67 +975,117 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       window.addEventListener('resize', handleAutoRotate);
       window.addEventListener('orientationchange', handleAutoRotate);
 
-      // Phím tắt bàn phím & Remote TV: F, D-Pad Left/Right, Up/Down, OK/Space, Media Keys
+      // Xử lý các phím Media chuyên biệt từ Remote TV Sony/Google TV
+      const handleTvMediaPlay = () => {
+        if (!art.playing) art.play();
+        art.notice.show = '▶ Đang phát';
+        showToolbar(true);
+      };
+
+      const handleTvMediaPause = () => {
+        if (art.playing) art.pause();
+        art.notice.show = '⏸ Đã tạm dừng';
+        showToolbar(true);
+      };
+
+      const handleTvMediaPlayPause = () => {
+        togglePlayPause();
+        showToolbar(true);
+      };
+
+      const handleTvMediaRewind = () => {
+        const cur = art.video.currentTime || 0;
+        art.seek = Math.max(0, cur - 10);
+        art.notice.show = '⏪ Lùi 10s';
+        triggerGestureFeedback('left');
+        showToolbar(true);
+      };
+
+      const handleTvMediaFastForward = () => {
+        const cur = art.video.currentTime || 0;
+        const dur = art.video.duration || 999999;
+        art.seek = Math.min(dur, cur + 10);
+        art.notice.show = '⏩ Tua 10s';
+        triggerGestureFeedback('right');
+        showToolbar(true);
+      };
+
+      const handleTvExitFullscreen = () => {
+        if (isCurrentlyFullscreen()) {
+          exitLandscapeFullscreen();
+        }
+      };
+
+      window.addEventListener('tv-media-play', handleTvMediaPlay);
+      window.addEventListener('tv-media-pause', handleTvMediaPause);
+      window.addEventListener('tv-media-playpause', handleTvMediaPlayPause);
+      window.addEventListener('tv-media-rewind', handleTvMediaRewind);
+      window.addEventListener('tv-media-fastforward', handleTvMediaFastForward);
+      window.addEventListener('tv-exit-fullscreen', handleTvExitFullscreen);
+
+      // Cấu hình MediaSession để Android TV nhận diện app phát media và chuyển phím cứng Play/Pause vào app
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.setActionHandler('play', handleTvMediaPlay);
+          navigator.mediaSession.setActionHandler('pause', handleTvMediaPause);
+          navigator.mediaSession.setActionHandler('seekforward', handleTvMediaFastForward);
+          navigator.mediaSession.setActionHandler('seekbackward', handleTvMediaRewind);
+        } catch {
+          // Ignore unsupported media session actions
+        }
+      }
+
+      // Phím tắt bàn phím & Hàng phím cứng Media ở dưới của Remote TV:
+      // TUYỆT ĐỐI KHÔNG CHẶN D-PAD (Lên, Xuống, Trái, Phải, Nút giữa OK) để người dùng tự do di chuyển menu & chọn tập!
       const onKeyDown = (e: KeyboardEvent) => {
         if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
 
-        // F: Phóng to / Thu nhỏ
+        // F: Phóng to / Thu nhỏ toàn màn hình
         if (e.key === 'f' || e.key === 'F') {
           e.preventDefault();
           toggleLandscapeFullscreen();
           return;
         }
 
-        // Space hoặc Enter: Tạm dừng / Tiếp tục
-        if (e.key === ' ' || e.key === 'Enter' || e.keyCode === 32 || e.keyCode === 13 || e.key === 'MediaPlayPause') {
+        // Nút Play chuyên biệt (▶) trên Remote TV Sony / Google TV / Android TV Box
+        if (e.key === 'MediaPlay' || e.keyCode === 126 || e.keyCode === 250 || e.keyCode === 415) {
           e.preventDefault();
-          togglePlayPause();
-          showToolbar(true);
+          handleTvMediaPlay();
           return;
         }
 
-        // Mũi tên Trái / Tua lùi (10s)
-        if (e.key === 'ArrowLeft' || e.keyCode === 37 || e.key === 'MediaRewind') {
+        // Nút Pause chuyên biệt (||) trên Remote TV
+        if (e.key === 'MediaPause' || e.keyCode === 127 || e.keyCode === 19) {
           e.preventDefault();
-          const cur = art.video.currentTime || 0;
-          const target = Math.max(0, cur - 10);
-          art.seek = target;
-          art.notice.show = '⏪ Lùi 10s';
-          triggerGestureFeedback('left');
-          showToolbar(true);
+          handleTvMediaPause();
           return;
         }
 
-        // Mũi tên Phải / Tua tới (10s)
-        if (e.key === 'ArrowRight' || e.keyCode === 39 || e.key === 'MediaFastForward') {
+        // Nút Stop trên Remote TV
+        if (e.key === 'MediaStop' || e.keyCode === 86 || e.keyCode === 178) {
           e.preventDefault();
-          const cur = art.video.currentTime || 0;
-          const dur = art.video.duration || 999999;
-          const target = Math.min(dur, cur + 10);
-          art.seek = target;
-          art.notice.show = '⏩ Tua 10s';
-          triggerGestureFeedback('right');
-          showToolbar(true);
+          handleTvMediaPause();
           return;
         }
 
-        // Mũi tên Lên: Tăng âm lượng
-        if (e.key === 'ArrowUp' || e.keyCode === 38) {
+        // Nút gộp Play/Pause trên Remote TV (KEYCODE_MEDIA_PLAY_PAUSE: 85, 179)
+        if (e.key === 'MediaPlayPause' || e.keyCode === 85 || e.keyCode === 179) {
           e.preventDefault();
-          const newVol = Math.min(1, Number((art.volume + 0.1).toFixed(2)));
-          art.volume = newVol;
-          art.notice.show = `🔊 Âm lượng: ${Math.round(newVol * 100)}%`;
-          showToolbar(true);
+          handleTvMediaPlayPause();
           return;
         }
 
-        // Mũi tên Xuống: Giảm âm lượng
-        if (e.key === 'ArrowDown' || e.keyCode === 40) {
+        // Nút Tua lùi chuyên biệt `<<` ở hàng dưới (KEYCODE_MEDIA_REWIND: 89, 227, 412)
+        if (e.key === 'MediaRewind' || e.keyCode === 89 || e.keyCode === 227 || e.keyCode === 412) {
           e.preventDefault();
-          const newVol = Math.max(0, Number((art.volume - 0.1).toFixed(2)));
-          art.volume = newVol;
-          art.notice.show = `🔉 Âm lượng: ${Math.round(newVol * 100)}%`;
-          showToolbar(true);
+          handleTvMediaRewind();
+          return;
+        }
+
+        // Nút Tua tới chuyên biệt `>>` ở hàng dưới (KEYCODE_MEDIA_FAST_FORWARD: 90, 228, 417)
+        if (e.key === 'MediaFastForward' || e.keyCode === 90 || e.keyCode === 228 || e.keyCode === 417) {
+          e.preventDefault();
+          handleTvMediaFastForward();
           return;
         }
 
@@ -1080,6 +1135,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         window.removeEventListener('resize', handleAutoRotate);
         window.removeEventListener('orientationchange', handleAutoRotate);
         window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('tv-media-play', handleTvMediaPlay);
+        window.removeEventListener('tv-media-pause', handleTvMediaPause);
+        window.removeEventListener('tv-media-playpause', handleTvMediaPlayPause);
+        window.removeEventListener('tv-media-rewind', handleTvMediaRewind);
+        window.removeEventListener('tv-media-fastforward', handleTvMediaFastForward);
+        window.removeEventListener('tv-exit-fullscreen', handleTvExitFullscreen);
         if (touchSingleTapTimer) clearTimeout(touchSingleTapTimer);
         if (desktopSingleClickTimer) clearTimeout(desktopSingleClickTimer);
         if (hideControlsTimer) clearTimeout(hideControlsTimer);
@@ -1100,10 +1161,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       if (art.template?.$player) {
         if (isShow) {
           art.template.$player.classList.remove('art-controls-hidden');
-          art.template.$player.classList.remove('art-hide-cursor');
         } else {
           art.template.$player.classList.add('art-controls-hidden');
-          art.template.$player.classList.add('art-hide-cursor');
         }
       }
     });
