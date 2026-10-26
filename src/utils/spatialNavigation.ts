@@ -4,18 +4,28 @@
  * Tự động tìm kiếm phần tử gần nhất theo hướng mũi tên Lên, Xuống, Trái, Phải
  */
 
+let lastMouseX = -1;
+let lastMouseY = -1;
+
+export function getLastMousePoint(): { x: number; y: number } {
+  return { x: lastMouseX, y: lastMouseY };
+}
+
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
   'a[href]:not([disabled])',
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
-  '[tabindex="0"]:not([disabled])',
+  '[tabindex]:not([tabindex="-1"]):not([disabled])',
   '[role="button"]:not([disabled])',
   '.art-custom-fs-btn',
   '.art-capsule-btn',
   '.art-speed-pill-btn',
   '.art-control-playAndPause',
+  '.zen-ep-toggle-btn',
+  '.zen-ep-item-btn',
+  '.zen-next-ep-btn',
 ].join(', ');
 
 interface Rect {
@@ -59,6 +69,13 @@ function isElementVisible(el: HTMLElement): boolean {
 }
 
 export function getAllFocusableElements(): HTMLElement[] {
+  // Nếu có popup chọn tập đang mở, ưu tiên focus các phần tử trong drawer
+  const drawer = document.querySelector('.zen-episode-drawer') as HTMLElement | null;
+  if (drawer && isElementVisible(drawer)) {
+    const rawInDrawer = Array.from(drawer.querySelectorAll(FOCUSABLE_SELECTOR)) as HTMLElement[];
+    return rawInDrawer.filter(isElementVisible);
+  }
+
   // Nếu video đang ở chế độ toàn màn hình, chỉ tìm kiếm các nút điều khiển trong player
   const fsPlayer = document.querySelector('.art-video-player.art-fullscreen');
   const root = fsPlayer || document;
@@ -78,7 +95,7 @@ export function moveFocus(direction: 'up' | 'down' | 'left' | 'right'): boolean 
 
   // Nếu chưa có phần tử nào được focus, ưu tiên focus phần tử đầu tiên hợp lý
   if (!isCurrentFocusable) {
-    // Ưu tiên nút Quay lại hoặc Tập đang chọn nếu có trên WatchPage
+    // Ưu tiên nút đang active hoặc phần tử đầu tiên
     const preferred =
       document.querySelector('[data-tv-preferred="true"]') as HTMLElement ||
       document.querySelector('.ring-1.ring-red-400') as HTMLElement || // Active episode
@@ -168,14 +185,13 @@ export function moveFocus(direction: 'up' | 'down' | 'left' | 'right'): boolean 
 }
 
 /**
- * Khởi tạo Spatial Navigation toàn ứng dụng
+ * Khởi tạo Spatial Navigation & Hỗ trợ Chuột bay (Air Mouse) toàn ứng dụng
  */
 export function initSpatialNavigation(): () => void {
   const handleKeyDown = (e: KeyboardEvent) => {
     // Không can thiệp khi đang gõ phím trong ô tìm kiếm
     if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        // Cho phép thoát khỏi ô input khi bấm phím mũi tên Lên/Xuống
         const dir = e.key === 'ArrowDown' ? 'down' : 'up';
         moveFocus(dir);
         e.preventDefault();
@@ -192,11 +208,35 @@ export function initSpatialNavigation(): () => void {
       if (moveFocus('down')) e.preventDefault();
     } else if (e.key === 'ArrowUp' || e.keyCode === 38) {
       if (moveFocus('up')) e.preventDefault();
-    } else if (e.key === 'Enter' || e.keyCode === 13) {
-      // Phím OK ở tâm D-Pad: Tự động kích hoạt click trên phần tử đang focus
+    } else if (
+      e.key === 'Enter' ||
+      e.key === 'Select' ||
+      e.key === 'Ok' ||
+      e.keyCode === 13 ||
+      e.keyCode === 23 || // Android KEYCODE_DPAD_CENTER
+      e.keyCode === 66 || // Android KEYCODE_ENTER
+      e.keyCode === 160   // KEYCODE_NUMPAD_ENTER
+    ) {
+      // 1. Nếu người dùng đang rê chuột bay (Air Mouse) trỏ vào một phần tử trên màn hình:
+      if (lastMouseX >= 0 && lastMouseY >= 0) {
+        const hovered = document.elementFromPoint(lastMouseX, lastMouseY) as HTMLElement | null;
+        if (hovered) {
+          const clickable = hovered.closest(
+            'button, a, [role="button"], input, select, textarea, .art-control, .art-capsule-btn, .art-custom-fs-btn, .art-speed-pill-btn, .art-control-playAndPause, .zen-ep-toggle-btn, .zen-ep-item-btn, .zen-next-ep-btn, [tabindex]:not([tabindex="-1"])'
+          ) as HTMLElement | null;
+
+          if (clickable && isElementVisible(clickable)) {
+            e.preventDefault();
+            clickable.focus();
+            clickable.click();
+            return;
+          }
+        }
+      }
+
+      // 2. Phím OK ở tâm D-Pad: Tự động kích hoạt click trên phần tử đang focus
       const active = document.activeElement as HTMLElement | null;
       if (active && active !== document.body) {
-        // Nếu là div role=button hoặc tabindex=0 không tự click bởi trình duyệt
         if (active.tagName !== 'BUTTON' && active.tagName !== 'A' && active.tagName !== 'INPUT') {
           e.preventDefault();
           active.click();
@@ -205,9 +245,26 @@ export function initSpatialNavigation(): () => void {
     }
   };
 
+  // Đồng bộ tiêu điểm khi chuột bay (Air Mouse) rê qua các phần tử có thể bấm
+  const handlePointerMove = (e: MouseEvent | PointerEvent) => {
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+
+    const target = (e.target as HTMLElement)?.closest?.(FOCUSABLE_SELECTOR) as HTMLElement | null;
+    if (target && target !== document.activeElement && isElementVisible(target)) {
+      try {
+        target.focus({ preventScroll: true });
+      } catch {}
+    }
+  };
+
   window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('mousemove', handlePointerMove, { passive: true });
+  window.addEventListener('pointermove', handlePointerMove, { passive: true });
 
   return () => {
     window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('mousemove', handlePointerMove);
+    window.removeEventListener('pointermove', handlePointerMove);
   };
 }

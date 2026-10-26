@@ -58,6 +58,14 @@ export function App() {
     window.addEventListener('hashchange', handleHashChange);
 
     const handleGoBack = (e?: Event) => {
+      // 0. Nếu Drawer chọn tập trong player đang mở: Đóng drawer trước!
+      const epDrawer = document.querySelector('.zen-episode-drawer');
+      if (epDrawer) {
+        e?.preventDefault?.();
+        window.dispatchEvent(new CustomEvent('zen-close-ep-drawer'));
+        return;
+      }
+
       // 1. Nếu video đang mở toàn màn hình: Thoát toàn màn hình trước
       const fsPlayer = document.querySelector('.art-video-player.art-fullscreen');
       if (fsPlayer) {

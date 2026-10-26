@@ -193,6 +193,10 @@ export const WatchPage: React.FC<WatchPageProps> = ({
 
   const currentServerObj = episodes[currentServer] || episodes[0];
   const episodeList = currentServerObj?.server_data || [];
+  const currentEpIndex = episodeList.findIndex((ep) => ep.slug === currentEpisode?.slug);
+  const nextEpisode = (currentEpIndex >= 0 && currentEpIndex < episodeList.length - 1)
+    ? episodeList[currentEpIndex + 1]
+    : null;
   const statusText = movie.episode_current?.toLowerCase().includes('full')
     ? 'Hoàn thành'
     : (movie.episode_current || 'Hoàn thành');
@@ -239,6 +243,16 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   episodeName={currentEpisode.name}
                   startTime={initialTime}
                   onTimeUpdate={handleTimeUpdate}
+                  episodes={episodes}
+                  currentServer={currentServer}
+                  currentEpisode={currentEpisode}
+                  onSelectEpisode={handleSelectEpisode}
+                  nextEpisode={nextEpisode}
+                  onNextEpisode={() => {
+                    if (nextEpisode) {
+                      handleSelectEpisode(currentServer, nextEpisode);
+                    }
+                  }}
                 />
               ) : currentEpisode?.link_embed ? (
                 <iframe

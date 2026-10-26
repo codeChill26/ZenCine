@@ -20,6 +20,12 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Kích hoạt Hardware Acceleration cho Window để đạt 60fps trên TV
+        getWindow().setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        );
+
         // Đảm bảo WebView luôn nhận tiêu điểm (Focus) ngay khi khởi động cho Remote Android TV / D-Pad
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebView webView = getBridge().getWebView();
@@ -27,21 +33,38 @@ public class MainActivity extends BridgeActivity {
             webView.setFocusableInTouchMode(true);
             webView.requestFocus();
 
+            // Ép buộc Hardware Acceleration ở tầng Layer cho WebView
+            webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+
             // Cung cấp Native Bridge cho Web App
             webView.addJavascriptInterface(new ZenNativeBridge(), "ZenNative");
 
-            // Tối ưu cài đặt cho Android TV và Chuột bay / Remote cảm biến
-            webView.getSettings().setJavaScriptEnabled(true);
-            webView.getSettings().setDomStorageEnabled(true);
-            webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+            // Tối ưu cài đặt phần cứng cho Android TV và Chuột bay / Remote cảm biến
+            android.webkit.WebSettings settings = webView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+            settings.setMediaPlaybackRequiresUserGesture(false);
+
+            // Bật offscreen pre-raster để cuộn danh sách phim siêu mượt không bao giờ bị chớp trắng
+            settings.setOffscreenPreRaster(true);
+
+            // Vô hiệu hóa thanh cuộn rườm rà và hiệu ứng kéo dãn (over-scroll) gây lag trên TV
+            webView.setVerticalScrollBarEnabled(false);
+            webView.setHorizontalScrollBarEnabled(false);
+            webView.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
         }
     }
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent event) {
-        // Hỗ trợ chuột bay (Air Mouse) và con trỏ cảm biến trên Remote TV Sony
+        // Hỗ trợ chuột bay (Air Mouse) và con trỏ cảm biến trên Remote TV Sony / LG
+        // Xử lý đơn luồng, tránh gửi trùng lặp sự kiện (duplicate motion jitter)
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().dispatchGenericMotionEvent(event);
+            if (getBridge().getWebView().dispatchGenericMotionEvent(event)) {
+                return true;
+            }
         }
         return super.dispatchGenericMotionEvent(event);
     }
@@ -137,7 +160,23 @@ public class MainActivity extends BridgeActivity {
         }
 
         // TẤT CẢ CÁC PHÍM ĐIỀU HƯỚNG D-PAD (Lên, Xuống, Trái, Phải, Nút giữa OK):
-        // Cho phép chuyển thẳng tự nhiên vào WebView để Spatial Navigation di chuyển menu/focus và chọn tập
+        // Chuyển thẳng trực tiếp vào WebView để Spatial Navigation di chuyển menu/focus và chọn tập
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            if (getBridge().getWebView().dispatchKeyEvent(event)) {
+                return true;
+            }
+        }
         return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        // Chuyển trực tiếp các sự kiện chạm và click của Chuột bay (Air Mouse) vào WebView
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            if (getBridge().getWebView().dispatchTouchEvent(event)) {
+                return true;
+            }
+        }
+        return super.dispatchTouchEvent(event);
     }
 }

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Artplayer from 'artplayer';
 import Hls from 'hls.js';
+import { Layers, Clapperboard, X, Play } from 'lucide-react';
+import type { EpisodeServer, EpisodeData } from '../types/movie';
 
 export interface VideoPlayerRef {
   rewind: (seconds?: number) => void;
@@ -18,6 +21,12 @@ interface ArtplayerProps {
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   className?: string;
+  episodes?: EpisodeServer[];
+  currentServer?: number;
+  currentEpisode?: EpisodeData | null;
+  onSelectEpisode?: (serverIdx: number, ep: EpisodeData) => void;
+  nextEpisode?: EpisodeData | null;
+  onNextEpisode?: () => void;
 }
 
 function cleanEpisodeBadge(name: string): string {
@@ -28,6 +37,15 @@ function cleanEpisodeBadge(name: string): string {
     .replace(/^tập\s*/i, '')
     .trim();
   return normalized ? `TẬP ${normalized.toUpperCase()}` : 'TẬP 01';
+}
+
+function cleanEpisodeText(name?: string): string {
+  if (!name) return 'Tập 01';
+  const clean = name.trim();
+  const num = clean.replace(/^tập\s*tập\s*/i, '').replace(/^tập\s*/i, '').trim();
+  if (!num) return 'Tập 01';
+  if (num.toLowerCase() === 'full') return 'Tập Full';
+  return `Tập ${num}`;
 }
 
 // Khóa xoay ngang màn hình (Hỗ trợ Capacitor Plugin + Web Screen Orientation API)
@@ -79,12 +97,102 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
   onTimeUpdate,
   onEnded,
   className = '',
+  episodes,
+  currentServer = 0,
+  currentEpisode,
+  onSelectEpisode,
+  nextEpisode,
+  onNextEpisode,
 }, ref) => {
   const artRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Artplayer | null>(null);
   const [isSimulatedLandscapeState, setIsSimulatedLandscapeState] = useState(false);
   const triggerGestureDomRef = useRef<((side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => void) | null>(null);
   const toggleFullscreenRef = useRef<((target?: boolean) => void) | null>(null);
+
+  // States cho In-Player Episode Drawer & Next Episode Popup
+  const [isEpisodeDrawerOpen, setIsEpisodeDrawerOpen] = useState(false);
+  const [showNextEpisodePopup, setShowNextEpisodePopup] = useState(false);
+  const [nextEpCountdown, setNextEpCountdown] = useState(15);
+  const [dismissedEpSlug, setDismissedEpSlug] = useState<string | null>(null);
+  const [portalHost, setPortalHost] = useState<HTMLDivElement | null>(null);
+  const [isControlsVisible, setIsControlsVisible] = useState(true);
+  const [drawerServerIdx, setDrawerServerIdx] = useState(currentServer || 0);
+
+  const isDrawerOpenRef = useRef(false);
+  isDrawerOpenRef.current = isEpisodeDrawerOpen;
+
+  const nextEpisodeRef = useRef(nextEpisode);
+  nextEpisodeRef.current = nextEpisode;
+
+  const onNextEpisodeRef = useRef(onNextEpisode);
+  onNextEpisodeRef.current = onNextEpisode;
+
+  const currentEpisodeRef = useRef(currentEpisode);
+  currentEpisodeRef.current = currentEpisode;
+
+  const dismissedEpSlugRef = useRef(dismissedEpSlug);
+  dismissedEpSlugRef.current = dismissedEpSlug;
+
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  onTimeUpdateRef.current = onTimeUpdate;
+
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
+  const activeEpBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    setDrawerServerIdx(currentServer || 0);
+  }, [currentServer]);
+
+  useEffect(() => {
+    setShowNextEpisodePopup(false);
+    setIsEpisodeDrawerOpen(false);
+  }, [url]);
+
+  // Bộ đếm lùi tự động phát tập tiếp theo khi hiển thị popup
+  useEffect(() => {
+    if (!showNextEpisodePopup) return;
+    const timer = setInterval(() => {
+      setNextEpCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setShowNextEpisodePopup(false);
+          onNextEpisode?.();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showNextEpisodePopup, onNextEpisode]);
+
+  // Tự động cuộn đến tập đang phát khi mở drawer chọn tập
+  useEffect(() => {
+    if (isEpisodeDrawerOpen) {
+      const timer = setTimeout(() => {
+        if (activeEpBtnRef.current) {
+          activeEpBtnRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try {
+            activeEpBtnRef.current.focus({ preventScroll: true });
+          } catch {}
+        }
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [isEpisodeDrawerOpen]);
+
+  // Đóng drawer khi người dùng bấm phím Back trên remote TV
+  useEffect(() => {
+    const handleCloseDrawer = () => {
+      setIsEpisodeDrawerOpen(false);
+    };
+    window.addEventListener('zen-close-ep-drawer', handleCloseDrawer);
+    return () => {
+      window.removeEventListener('zen-close-ep-drawer', handleCloseDrawer);
+    };
+  }, []);
 
   const triggerGestureFeedback = (side: 'left' | 'right' | 'center', text?: string, iconSvg?: string) => {
     triggerGestureDomRef.current?.(side, text, iconSvg);
@@ -183,8 +291,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           `,
           style: {
             position: 'absolute',
-            top: '12px',
-            right: '14px',
+            top: '14px',
+            left: '16px',
             zIndex: '15',
           },
         },
@@ -307,6 +415,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
     });
 
     instanceRef.current = art;
+
+    const host = document.createElement('div');
+    host.className = 'zen-player-portal-host';
+    if (art.template?.$player) {
+      art.template.$player.appendChild(host);
+      setPortalHost(host);
+    }
 
     art.on('ready', () => {
       // Setup Custom Progress Bar Row: [00:02] [--- Progress Slider ---] [62:26]
@@ -431,10 +546,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       let isBottomHovered = false;
 
       const hideToolbar = (force = false) => {
-        if (!force && (art.video.paused || isBottomHovered)) return;
+        if (!force && (art.video.paused || isBottomHovered || isDrawerOpenRef.current)) return;
         playerEl.classList.add('art-controls-hidden');
-        playerEl.classList.add('art-hide-cursor');
         art.controls.show = false;
+        setIsControlsVisible(false);
       };
 
       const showToolbar = (autoHide = true) => {
@@ -443,13 +558,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           hideControlsTimer = null;
         }
         playerEl.classList.remove('art-controls-hidden');
-        playerEl.classList.remove('art-hide-cursor');
         art.controls.show = true;
+        setIsControlsVisible(true);
 
-        if (autoHide && !art.video.paused && !isBottomHovered) {
+        if (autoHide && !art.video.paused && !isBottomHovered && !isDrawerOpenRef.current) {
           hideControlsTimer = setTimeout(() => {
             hideToolbar();
-          }, 3000);
+          }, 3500);
         }
       };
 
@@ -694,7 +809,6 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       let lastTouchTapX = 0;
       let lastTouchTapY = 0;
       let touchSingleTapTimer: any = null;
-      let lastTouchEndTime = 0;
 
       const onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
@@ -734,14 +848,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         const moveDist = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
         const touchDuration = Date.now() - touchStartTime;
 
-        if (hasTriggeredLongPress || touchDuration > 380 || moveDist > 25) {
+        if (hasTriggeredLongPress || touchDuration > 380 || moveDist > 20) {
+          if (e.cancelable) e.preventDefault();
           return;
-        }
-
-        lastTouchEndTime = Date.now();
-
-        if (e.cancelable) {
-          e.preventDefault();
         }
 
         const now = Date.now();
@@ -792,7 +901,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           target.closest('.art-custom-progress-row') ||
           target.closest('.art-progress') ||
           target.closest('.art-control') ||
-          target.closest('.art-watermark-badge')
+          target.closest('.art-watermark-badge') ||
+          target.closest('.zen-player-portal-host') ||
+          target.closest('.zen-ep-toggle-btn') ||
+          target.closest('.zen-episode-drawer') ||
+          target.closest('.zen-next-ep-popup')
         ) {
           return;
         }
@@ -819,26 +932,31 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           target.closest('.art-control-playAndPause') ||
           target.closest('button') ||
           target.closest('a') ||
+          target.closest('input') ||
+          target.closest('select') ||
           target.closest('.art-watermark-badge') ||
           target.closest('.art-setting') ||
-          target.closest('.art-settings')
+          target.closest('.art-settings') ||
+          target.closest('.zen-player-portal-host') ||
+          target.closest('.zen-ep-toggle-btn') ||
+          target.closest('.zen-episode-drawer') ||
+          target.closest('.zen-next-ep-popup') ||
+          target.closest('.zen-ep-item-btn') ||
+          target.closest('.zen-next-ep-btn')
         ) {
           return;
         }
 
-        if (Date.now() - lastTouchEndTime < 600 || hasTriggeredLongPress) {
+        if (hasTriggeredLongPress) {
           return;
         }
-
-        e.stopPropagation();
-        e.preventDefault();
 
         const now = Date.now();
         const clickInterval = now - lastDesktopClickTime;
         const clickDist = Math.hypot(e.clientX - lastDesktopClickX, e.clientY - lastDesktopClickY);
 
-        if (clickInterval < 350 && clickDist < 40) {
-          // Double Click trên desktop
+        if (clickInterval < 320 && clickDist < 45) {
+          // Double Click: Phóng to hoặc tua
           if (desktopSingleClickTimer) {
             clearTimeout(desktopSingleClickTimer);
             desktopSingleClickTimer = null;
@@ -847,7 +965,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
           handleDoubleAction(e.clientX, e.clientY);
           showToolbar(true);
         } else {
-          // Single Click: Play / Pause
+          // Single Click: Xử lý thông minh và phản hồi nhanh cho Air Mouse
           lastDesktopClickTime = now;
           lastDesktopClickX = e.clientX;
           lastDesktopClickY = e.clientY;
@@ -859,19 +977,25 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
             desktopSingleClickTimer = null;
             lastDesktopClickTime = 0;
             togglePlayPause();
-          }, 260);
+          }, 180);
         }
       };
 
-      // Di chuyển chuột trên Desktop sẽ khôi phục hiển thị thanh công cụ
+      // Di chuyển chuột trên Desktop/TV: Throttle 80ms để mượt mà khi rê chuột bay
+      let lastMouseMoveTime = 0;
       const onMouseMove = () => {
-        showToolbar(true);
+        const now = Date.now();
+        if (now - lastMouseMoveTime > 80) {
+          lastMouseMoveTime = now;
+          showToolbar(true);
+          setIsControlsVisible(true);
+        }
       };
 
       // Khi chuột rời khỏi khung player, tự động ẩn sau 1 giây
       const onMouseLeave = () => {
         stopLongPress();
-        if (!art.video.paused) {
+        if (!art.video.paused && !isDrawerOpenRef.current) {
           if (hideControlsTimer) clearTimeout(hideControlsTimer);
           hideControlsTimer = setTimeout(() => {
             hideToolbar();
@@ -879,21 +1003,19 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         }
       };
 
-      // Giữ thanh công cụ luôn hiện khi chuột đang hover trong khu vực điều khiển bên dưới
+      // Giữ thanh công cụ luôn hiện khi chuột đang hover trong khu vực điều khiển hoặc drawer
       const bottomEl = art.template.$bottom;
       const onBottomMouseEnter = () => {
-        if (window.matchMedia('(pointer: fine)').matches) {
-          isBottomHovered = true;
-          if (hideControlsTimer) {
-            clearTimeout(hideControlsTimer);
-            hideControlsTimer = null;
-          }
+        isBottomHovered = true;
+        if (hideControlsTimer) {
+          clearTimeout(hideControlsTimer);
+          hideControlsTimer = null;
         }
       };
 
       const onBottomMouseLeave = () => {
         isBottomHovered = false;
-        if (!art.video.paused) {
+        if (!art.video.paused && !isDrawerOpenRef.current) {
           showToolbar(true);
         }
       };
@@ -906,7 +1028,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       };
 
       const onBottomTouchEnd = () => {
-        if (!art.video.paused) {
+        if (!art.video.paused && !isDrawerOpenRef.current) {
           if (hideControlsTimer) clearTimeout(hideControlsTimer);
           hideControlsTimer = setTimeout(() => {
             hideToolbar();
@@ -914,7 +1036,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
         }
       };
 
-      playerEl.addEventListener('click', onPlayerClick, true);
+      playerEl.addEventListener('click', onPlayerClick, false);
       playerEl.addEventListener('mousedown', onMouseDown);
       playerEl.addEventListener('mouseup', onMouseUp);
       playerEl.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -926,6 +1048,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       bottomEl?.addEventListener('mouseleave', onBottomMouseLeave);
       bottomEl?.addEventListener('touchstart', onBottomTouchStart, { passive: true });
       bottomEl?.addEventListener('touchend', onBottomTouchEnd, { passive: true });
+      host?.addEventListener('mouseenter', onBottomMouseEnter);
+      host?.addEventListener('mouseleave', onBottomMouseLeave);
 
       // Lắng nghe thoát toàn màn hình native (Esc trên bàn phím hoặc nút Back trên Android)
       const onNativeFullscreenChange = () => {
@@ -1158,6 +1282,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
     // Đồng bộ trạng thái hiển thị thanh công cụ
     art.on('control', (state) => {
       const isShow = Boolean(state);
+      setIsControlsVisible(isShow);
       if (art.template?.$player) {
         if (isShow) {
           art.template.$player.classList.remove('art-controls-hidden');
@@ -1178,17 +1303,35 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
     art.on('video:timeupdate', () => {
       const current = art.currentTime;
       const duration = art.duration || 0;
+      const remaining = duration - current;
+
       if (Math.abs(current - lastSaved) >= 5) {
         lastSaved = current;
-        onTimeUpdate?.(current, duration);
+        onTimeUpdateRef.current?.(current, duration);
+      }
+
+      // Khi gần hết tập (còn <= 45s và duration > 60s) và có tập tiếp theo
+      if (nextEpisodeRef.current && duration > 60) {
+        if (remaining > 0 && remaining <= 45 && dismissedEpSlugRef.current !== currentEpisodeRef.current?.slug) {
+          setShowNextEpisodePopup(true);
+          setNextEpCountdown(Math.min(15, Math.max(1, Math.floor(remaining))));
+        } else if (remaining > 50) {
+          setShowNextEpisodePopup(false);
+        }
       }
     });
 
     art.on('video:ended', () => {
-      onEnded?.();
+      if (nextEpisodeRef.current && dismissedEpSlugRef.current !== currentEpisodeRef.current?.slug) {
+        setShowNextEpisodePopup(false);
+        onNextEpisodeRef.current?.();
+      }
+      onEndedRef.current?.();
     });
 
     return () => {
+      host.remove();
+      setPortalHost(null);
       if (hlsInstance) {
         hlsInstance.destroy();
       }
@@ -1197,6 +1340,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       }
     };
   }, [url]);
+
+  const currentServerObj = episodes ? (episodes[drawerServerIdx] || episodes[0]) : null;
+  const drawerEpisodeList = currentServerObj?.server_data || [];
 
   return (
     <div
@@ -1207,6 +1353,179 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, ArtplayerProps>(({
       }
     >
       <div ref={artRef} className="w-full h-full select-none" />
+
+      {portalHost &&
+        createPortal(
+          <>
+            {/* 1. Toggle Button góc trên bên phải để mở danh sách tập phim không cần thoát */}
+            {episodes && episodes.length > 0 && (
+              <button
+                type="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEpisodeDrawerOpen((prev) => !prev);
+                }}
+                className={`zen-ep-toggle-btn absolute top-3.5 right-3.5 z-[55] flex items-center gap-2 px-3 py-1.5 rounded-xl text-white select-none ${
+                  isControlsVisible || isEpisodeDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                } ${isEpisodeDrawerOpen ? 'is-drawer-open' : ''}`}
+                title="Chọn tập phim (không cần thoát ra ngoài)"
+              >
+                <Layers className="w-4 h-4 text-red-500" />
+                <span className="text-xs font-bold tracking-wide">Chọn tập</span>
+                {currentEpisode?.name && (
+                  <span className="text-[10px] font-black bg-red-600 px-1.5 py-0.5 rounded text-white tracking-wider">
+                    {cleanEpisodeBadge(currentEpisode.name)}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* 2. Drawer chọn tập ngay trong khung phát video */}
+            {isEpisodeDrawerOpen && (
+              <>
+                <div
+                  className="zen-episode-drawer-backdrop absolute inset-0 z-[68] bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEpisodeDrawerOpen(false);
+                  }}
+                />
+
+                <div
+                  className="zen-episode-drawer absolute top-0 right-0 bottom-0 w-80 sm:w-96 max-w-[85vw] h-full bg-[#0b0c10]/95 backdrop-blur-2xl border-l border-white/10 z-[70] flex flex-col p-4 shadow-2xl text-slate-100 select-none"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Clapperboard className="w-5 h-5 text-red-500" />
+                      <h3 className="font-bold text-white text-sm sm:text-base tracking-wide">
+                        Danh sách tập phim
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      tabIndex={0}
+                      onClick={() => setIsEpisodeDrawerOpen(false)}
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                      title="Đóng (Esc)"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {episodes && episodes.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2.5 mb-2.5 border-b border-white/5">
+                      {episodes.map((s, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          tabIndex={0}
+                          onClick={() => setDrawerServerIdx(idx)}
+                          className={`text-xs px-3 py-1 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap ${
+                            drawerServerIdx === idx
+                              ? 'bg-red-600 text-white shadow-md shadow-red-600/40 ring-1 ring-red-400'
+                              : 'bg-white/5 hover:bg-white/10 text-slate-400 border border-white/5'
+                          }`}
+                        >
+                          {s.server_name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex-1 overflow-y-auto no-scrollbar pr-1">
+                    <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
+                      {drawerEpisodeList.map((ep) => {
+                        const isActive = ep.slug === currentEpisode?.slug && drawerServerIdx === currentServer;
+                        return (
+                          <button
+                            key={ep.slug}
+                            ref={isActive ? activeEpBtnRef : undefined}
+                            type="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              onSelectEpisode?.(drawerServerIdx, ep);
+                              setIsEpisodeDrawerOpen(false);
+                            }}
+                            className={`zen-ep-item-btn py-2.5 px-1.5 rounded-xl text-xs font-bold text-center transition-all cursor-pointer truncate ${
+                              isActive
+                                ? 'bg-red-600 text-white shadow-lg shadow-red-600/50 ring-2 ring-red-400 font-black scale-105'
+                                : 'bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 hover:border-white/20 active:scale-95'
+                            }`}
+                            title={ep.name}
+                          >
+                            {cleanEpisodeText(ep.name)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 3. Popup góc dưới bên phải: Tập tiếp theo & Nút Tiếp tục */}
+            {showNextEpisodePopup && nextEpisode && (
+              <div
+                className="zen-next-ep-popup absolute bottom-20 sm:bottom-24 right-4 sm:right-6 z-[65] max-w-sm sm:max-w-md w-[calc(100%-2rem)] sm:w-auto bg-[#0f172a]/95 backdrop-blur-2xl border border-red-500/50 rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-black/90 flex items-center gap-3.5 select-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {poster && (
+                  <div className="relative w-16 h-12 sm:w-20 sm:h-14 rounded-lg overflow-hidden shrink-0 bg-black/60 border border-white/10">
+                    <img src={poster} alt="Preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <Play className="w-4 h-4 text-white fill-white" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-red-500">
+                      Tập tiếp theo
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">• Tự phát sau {nextEpCountdown}s</span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-white truncate">
+                    {cleanEpisodeText(nextEpisode.name)}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setShowNextEpisodePopup(false);
+                      onNextEpisode?.();
+                    }}
+                    className="zen-next-ep-btn px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/40 flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  >
+                    <span>Tiếp tục</span>
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                  </button>
+
+                  <button
+                    type="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setShowNextEpisodePopup(false);
+                      if (currentEpisode) {
+                        setDismissedEpSlug(currentEpisode.slug);
+                      }
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Đóng thông báo"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>,
+          portalHost
+        )}
     </div>
   );
 });

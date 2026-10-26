@@ -37,33 +37,41 @@
    Provides ultra-clear, high-contrast Cinema-Red glowing rings on TV screens
    ========================================================================== */
 
+/* Tối ưu hiệu năng render GPU cho TV & Air Mouse */
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
 /* Universal keyboard & TV focus-visible */
 :focus-visible {
   outline: 3px solid #e50914 !important;
   outline-offset: 3px !important;
-  box-shadow: 0 0 25px rgba(229, 9, 20, 0.75) !important;
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.75) !important;
   border-radius: inherit;
 }
 
 /* TV Remote Navigation Mode & Air Mouse Hover Effects */
 body.tv-mode :focus,
 button:hover,
-a:hover,
 [role="button"]:hover {
   outline: 3px solid #e50914 !important;
-  outline-offset: 3px !important;
-  box-shadow: 0 0 28px rgba(229, 9, 20, 0.8) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 18px rgba(229, 9, 20, 0.7) !important;
   border-radius: inherit;
 }
 
+/* Sử dụng GPU Composite layer (translateZ) để hover và di chuyển tiêu điểm đạt 60fps mượt mà */
 body.tv-mode button:focus,
 body.tv-mode a:focus,
 body.tv-mode [role="button"]:focus,
 button:hover,
-a:hover,
 [role="button"]:hover {
-  transform: scale(1.04);
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1), box-shadow 0.2s ease, outline 0.2s ease;
+  transform: scale(1.035) translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1), box-shadow 0.15s ease, outline 0.15s ease;
 }
 
 body.tv-mode header :focus,
@@ -696,5 +704,96 @@ body.zen-simulated-landscape-active {
     max-width: 580px !important;
   }
 }
+
+/* ==========================================================
+   ZEN PLAYER IN-APP EPISODE SELECTOR & NEXT EPISODE POPUP
+   ========================================================== */
+
+.zen-player-portal-host {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 60 !important;
+}
+
+.zen-ep-toggle-btn,
+.zen-episode-drawer,
+.zen-next-ep-popup,
+.zen-episode-drawer-backdrop {
+  pointer-events: auto !important;
+}
+
+/* Nút Toggle mở danh sách tập ở góc trên bên phải */
+.zen-ep-toggle-btn {
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6) !important;
+  transition: opacity 0.25s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+  cursor: pointer !important;
+}
+
+.zen-ep-toggle-btn:hover,
+.zen-ep-toggle-btn:focus,
+.zen-ep-toggle-btn.is-drawer-open {
+  background: rgba(229, 9, 20, 0.25) !important;
+  border-color: #e50914 !important;
+  box-shadow: 0 0 22px rgba(229, 9, 20, 0.75) !important;
+  transform: scale(1.05) translateZ(0) !important;
+}
+
+/* Khi thanh công cụ video ẩn đi, nút toggle ẩn nhẹ */
+.art-video-player.art-controls-hidden .zen-ep-toggle-btn:not(.is-drawer-open) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(-8px) !important;
+}
+
+/* Drawer chọn tập ngay trong player */
+.zen-episode-drawer {
+  animation: zenDrawerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes zenDrawerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Popup góc phải dưới: Tập tiếp theo & Nút Tiếp tục */
+.zen-next-ep-popup {
+  animation: zenPopupSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes zenPopupSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.zen-ep-item-btn:hover,
+.zen-ep-item-btn:focus,
+.zen-next-ep-btn:hover,
+.zen-next-ep-btn:focus {
+  outline: 3px solid #e50914 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.8) !important;
+  cursor: pointer !important;
+}
+
 
 
